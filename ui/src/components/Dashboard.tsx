@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, 
@@ -17,6 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { WalletConnector } from "@/components/WalletConnector";
 import { AgentCard, type Agent } from "@/components/AgentCard";
 import { IntentComposer } from "@/components/IntentComposer";
+import { MicroservicesShowcase } from "@/components/MicroservicesShowcase";
+import { IntentProcessor } from "@/components/IntentProcessor";
+import { IntegrationTest } from "@/components/IntegrationTest";
+import { SimpleIntentTest } from "@/components/SimpleIntentTest";
 import heroImage from "@/assets/ai-network-hero.png";
 
 interface DashboardProps {
@@ -78,11 +82,25 @@ const stats = [
 export function Dashboard({ onStartIntent }: DashboardProps) {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [showIntentComposer, setShowIntentComposer] = useState(false);
+  const [showIntentProcessor, setShowIntentProcessor] = useState(false);
+  const [showMicroservices, setShowMicroservices] = useState(false);
+  const [showIntegrationTest, setShowIntegrationTest] = useState(false);
+  const [showSimpleTest, setShowSimpleTest] = useState(false);
+  const [processingResults, setProcessingResults] = useState<any[]>([]);
 
   const handleIntentSubmit = (intent: any) => {
     console.log("Intent submitted:", intent);
     // Handle intent submission
     setShowIntentComposer(false);
+  };
+
+  const handleProcessingResults = (results: any[]) => {
+    setProcessingResults(results);
+    console.log("Processing results:", results);
+  };
+
+  const handleProcessingError = (error: string) => {
+    console.error("Processing error:", error);
   };
 
   return (
@@ -138,14 +156,34 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
             <Button 
               variant="hero" 
               size="xl"
-              onClick={() => setShowIntentComposer(true)}
+              onClick={() => setShowIntentProcessor(true)}
             >
               <Sparkles className="w-5 h-5" />
               Start New Intent
             </Button>
-            <Button variant="outline" size="xl">
+            <Button 
+              variant="outline" 
+              size="xl"
+              onClick={() => setShowMicroservices(true)}
+            >
               <Users className="w-5 h-5" />
-              Browse Agents
+              Browse Services
+            </Button>
+            <Button 
+              variant="outline" 
+              size="xl"
+              onClick={() => setShowIntegrationTest(true)}
+            >
+              <Activity className="w-5 h-5" />
+              Run Tests
+            </Button>
+            <Button 
+              variant="outline" 
+              size="xl"
+              onClick={() => setShowSimpleTest(true)}
+            >
+              <Zap className="w-5 h-5" />
+              Simple Test
             </Button>
           </div>
         </motion.section>
@@ -171,6 +209,15 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
             </Card>
           ))}
         </motion.section>
+
+        {/* Microservices Showcase */}
+        <MicroservicesShowcase 
+          onServiceSelect={(service) => {
+            console.log("Service selected:", service);
+            setShowMicroservices(false);
+            setShowIntentProcessor(true);
+          }}
+        />
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Featured Agents */}
@@ -257,35 +304,146 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
         </div>
       </div>
 
-      {/* Intent Composer Modal */}
+      {/* Intent Processor Modal */}
       <AnimatePresence>
-        {showIntentComposer && (
+        {showIntentProcessor && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowIntentComposer(false)}
+            onClick={() => setShowIntentProcessor(false)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-card border border-border rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+              className="bg-card border border-border rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
             >
-              <IntentComposer onSubmit={handleIntentSubmit} />
+              <IntentProcessor 
+                onResults={handleProcessingResults}
+                onError={handleProcessingError}
+              />
               <Button
                 variant="ghost"
-                onClick={() => setShowIntentComposer(false)}
+                onClick={() => setShowIntentProcessor(false)}
                 className="mt-4 w-full"
               >
-                Cancel
+                Close
               </Button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Microservices Modal */}
+      <AnimatePresence>
+        {showMicroservices && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowMicroservices(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl p-8 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Available Microservices</h2>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowMicroservices(false)}
+                  className="p-2"
+                >
+                  ×
+                </Button>
+              </div>
+              <MicroservicesShowcase 
+                onServiceSelect={(service) => {
+                  console.log("Service selected:", service);
+                  setShowMicroservices(false);
+                  setShowIntentProcessor(true);
+                }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Integration Test Modal */}
+      <AnimatePresence>
+        {showIntegrationTest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowIntegrationTest(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Integration Test Suite</h2>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowIntegrationTest(false)}
+                  className="p-2"
+                >
+                  ×
+                </Button>
+              </div>
+              <IntegrationTest />
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Simple Test Modal */}
+        <AnimatePresence>
+          {showSimpleTest && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowSimpleTest(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h2 className="text-2xl font-bold text-foreground">Simple Intent Test</h2>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowSimpleTest(false)}
+                    className="p-2"
+                  >
+                    ×
+                  </Button>
+                </div>
+                <div className="p-6">
+                  <SimpleIntentTest />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </AnimatePresence>
     </div>
   );
 }
+
