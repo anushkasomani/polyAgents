@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend-Backend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Frontend-Backend Connection Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Backend Health</h3>
+        <button onclick="testBackendHealth()">Test Backend</button>
+        <div id="backend-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Intent Processing</h3>
+        <input type="text" id="intent-input" placeholder="Enter your intent..." value="Get BTC news and sentiment" style="width: 300px; padding: 5px;">
+        <button onclick="testIntentProcessing()">Test Intent</button>
+        <div id="intent-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Service Execution</h3>
+        <button onclick="testServiceExecution()">Test Execution</button>
+        <div id="execution-result"></div>
+    </div>
+
+    <script>
+        const ORCHESTRATOR_ENDPOINT = 'http://localhost:5400';
+        
+        async function testBackendHealth() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<p>Testing backend health...</p>';
+            
+            try {
+                const response = await fetch(`${ORCHESTRATOR_ENDPOINT}/health`);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Backend is healthy!</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Backend connection failed</h4>
+                        <p>Error: ${error.message}</p>
+                        <p>Make sure the backend is running on port 5400</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testIntentProcessing() {
+            const resultDiv = document.getElementById('intent-result');
+            const intent = document.getElementById('intent-input').value;
+            
+            resultDiv.innerHTML = '<p>Testing intent processing...</p>';
+            
+            try {
+                const response = await fetch(`${ORCHESTRATOR_ENDPOINT}/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userText: intent
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 402) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Intent processing successful! (402 Payment Required is expected)</h4>
+                            <p><strong>Services identified:</strong> ${data.plan?.services?.length || 0}</p>
+                            <p><strong>Total cost:</strong> $${data.price || 0}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Unexpected response status: ${response.status}</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Intent processing failed</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testServiceExecution() {
+            const resultDiv = document.getElementById('execution-result');
+            resultDiv.innerHTML = '<p>Testing service execution...</p>';
+            
+            try {
+                // First get a plan
+                const processResponse = await fetch(`${ORCHESTRATOR_ENDPOINT}/process`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userText: "Get BTC news and sentiment"
+                    })
+                });
+                
+                const processData = await processResponse.json();
+                
+                if (processResponse.status === 402) {
+                    // Now execute the services
+                    const executeResponse = await fetch(`${ORCHESTRATOR_ENDPOINT}/execute`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            plan: processData.plan
+                        })
+                    });
+                    
+                    const executeData = await executeResponse.json();
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Service execution successful!</h4>
+                            <p><strong>Services executed:</strong> ${executeData.results?.length || 0}</p>
+                            <p><strong>Total cost:</strong> $${executeData.totalCost || 0}</p>
+                            <pre>${JSON.stringify(executeData, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Failed to get plan</h4>
+                            <pre>${JSON.stringify(processData, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Service execution failed</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-test backend health on load
+        window.onload = function() {
+            testBackendHealth();
+        };
+    </script>
+</body>
+</html>
