@@ -1,7 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const fetch = require('node-fetch');
 
 const app = express();
 app.use(cors({ exposedHeaders: ['X-PAYMENT-RESPONSE'] }));
@@ -66,7 +65,7 @@ function generatePlan(userText) {
 // Helper function to generate mock service results
 function getMockServiceResult(serviceName, description) {
   const timestamp = new Date().toISOString();
-  
+
   switch (serviceName) {
     case 'news':
       return {
@@ -269,26 +268,26 @@ app.post('/execute', async (req, res) => {
   // Step 2: Execute services as a bundle
   console.log('🔄 BUNDLING: Executing all services in single transaction...');
   const results = [];
-  
+
   // Execute all services in parallel for better performance
   const servicePromises = plan.services.map(async (service) => {
     try {
       const serviceName = service.service.toLowerCase();
       const serviceUrl = SERVICE_ENDPOINTS[serviceName];
-      
+
       if (serviceUrl) {
         // Call actual service endpoint
         console.log(`📞 Calling ${serviceName} service at ${serviceUrl}`);
         const serviceResponse = await fetch(serviceUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             service: serviceName,
             description: service.description,
             timestamp: new Date().toISOString()
           })
         });
-        
+
         if (serviceResponse.ok) {
           const serviceResult = await serviceResponse.json();
           return {
