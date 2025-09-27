@@ -138,8 +138,15 @@ app.post('/settle', async (req: any, res: any) => {
         'function transferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce,bytes signature)'
       ];
       const token = new ethers.Contract(tokenAddress, tokenAbi, wallet);
+      // Get current gas price and add 20% for replacement transactions
+      const feeData = await provider.getFeeData();
+      const gasPrice = feeData.gasPrice || ethers.parseUnits('20', 'gwei');
+      const increasedGasPrice = gasPrice * 120n / 100n; // 20% increase
+
       // call transferWithAuthorization with the signed payload
-      const tx = await token.transferWithAuthorization(payload.from, payload.to, payload.value, payload.validAfter, payload.validBefore, payload.nonce, payload.signature);
+      const tx = await token.transferWithAuthorization(payload.from, payload.to, payload.value, payload.validAfter, payload.validBefore, payload.nonce, payload.signature, {
+        gasPrice: increasedGasPrice
+      });
       console.log('FACILITATOR: settlement tx submitted', tx.hash);
       await tx.wait(1);
       txHash = tx.hash;

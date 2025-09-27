@@ -5,6 +5,9 @@ import ArtifactPanel from '../components/ArtifactPanel';
 import LogViewer from '../components/LogViewer';
 import ConnectionDiagram from '../components/ConnectionDiagram';
 import Toast from '../components/Toast';
+import TextInputPanel from '../components/TextInputPanel';
+import WalletConnectButton from '../components/WalletConnectButton';
+import ChatUI from '../components/ChatUI';
 
 export default function Page() {
   const [running, setRunning] = useState(false);
@@ -17,6 +20,10 @@ export default function Page() {
   const [toast, setToast] = useState('');
   const [lastStart, setLastStart] = useState<string>('');
   const [lastNetwork, setLastNetwork] = useState<string>('');
+  const [userText, setUserText] = useState<string>('');
+  const [plan, setPlan] = useState<any>(null);
+  const [price, setPrice] = useState<number | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const prevStep = React.useRef<string>('idle');
 
   useEffect(() => {
@@ -81,6 +88,86 @@ export default function Page() {
     return () => clearInterval(t);
   }, []);
 
+  async function processUserText(text: string) {
+    setRunning(true);
+    setUserText(text);
+    setToast('Processing your request...');
+    setStatus('processing');
+
+    try {
+      // Step 1: Send text to orchestrator to get plan and payment requirements
+      const res = await fetch('http://localhost:5400/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userText: text })
+      });
+
+      if (res.status === 402) {
+        // Payment required
+        const data = await res.json();
+        setPlan(data.plan);
+        setPrice(data.price);
+        setStatus('payment_required');
+        setToast(`Payment required: ${data.price} wei`);
+
+        // For demo purposes, we'll simulate payment and proceed
+        setTimeout(async () => {
+          await executeWithPayment(data.plan, text);
+        }, 2000);
+
+      } else if (res.ok) {
+        const data = await res.json();
+        setResponse(data);
+        setStatus('completed');
+        setToast('Request completed');
+      } else {
+        setToast('Failed to process request');
+        setStatus('error');
+      }
+    } catch (e) {
+      setToast('Error processing request');
+      setStatus('error');
+      console.error('Error:', e);
+    } finally {
+      setRunning(false);
+      setTimeout(() => setToast(''), 3000);
+    }
+  }
+
+  async function executeWithPayment(plan: any, originalText: string) {
+    setStatus('executing');
+    setToast('Executing services...');
+
+    try {
+      // Simulate payment header (in real implementation, this would come from wallet)
+      const mockPaymentHeader = 'mock_payment_' + Date.now();
+
+      const res = await fetch('http://localhost:5400/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Payment': mockPaymentHeader
+        },
+        body: JSON.stringify({ plan })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setResponse(data);
+        setStatus('completed');
+        setToast('Services executed successfully');
+        setArtifactActive('response');
+      } else {
+        setToast('Failed to execute services');
+        setStatus('error');
+      }
+    } catch (e) {
+      setToast('Error executing services');
+      setStatus('error');
+      console.error('Error:', e);
+    }
+  }
+
   async function startDemo() {
     setRunning(true);
     setToast('Starting demo...');
@@ -142,6 +229,7 @@ export default function Page() {
           <div className="text-sm text-muted">Demo orchestration & artifacts</div>
         </div>
         <div className="flex items-center gap-3">
+          <WalletConnectButton onConnect={(addr)=>{ setToast(`Wallet: ${addr}`); setWalletAddress(addr); }} />
           <StartDemoButton running={running} onStart={() => startDemo()} onHardRefresh={() => hardRefresh()} />
         </div>
       </header>
@@ -155,6 +243,7 @@ export default function Page() {
 
       <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-3 space-y-4">
+          <TextInputPanel onSubmit={processUserText} loading={running} />
           <div className="p-4 bg-panel rounded-lg shadow-soft">
             <ConnectionDiagram />
           </div>
@@ -164,10 +253,35 @@ export default function Page() {
         </aside>
 
         <main className="col-span-6">
-          <h3 className="mb-2 text-lg font-medium">Logs</h3>
+          <h3 className="mb-2 text-lg font-medium">Assistant</h3>
           <div className="p-4 bg-panel rounded-lg shadow-soft">
+            <ChatUI onSubmit={processUserText} response={response} />
+          </div>
+
+          <div className="mt-4 p-4 bg-panel rounded-lg shadow-soft">
+            <h4 className="font-medium mb-2">Logs</h4>
             <LogViewer logs={logs} />
           </div>
+
+          {userText && (
+            <div className="mt-4 p-4 bg-panel rounded-lg shadow-soft">
+              <h4 className="font-medium mb-2">User Request</h4>
+              <p className="text-sm text-gray-700 mb-2">"{userText}"</p>
+              {plan && (
+                <div className="text-sm">
+                  <p className="font-medium">Identified Services:</p>
+                  <ul className="list-disc list-inside mt-1">
+                    {plan.services?.map((service: any, index: number) => (
+                      <li key={index} className="text-gray-600">{service.service}: {service.description}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {price && (
+                <p className="text-sm mt-2 text-blue-600">Price: {price} wei</p>
+              )}
+            </div>
+          )}
         </main>
 
         <aside className="col-span-3">
@@ -175,6 +289,7 @@ export default function Page() {
             <h4 className="font-medium mb-2">Details</h4>
             <div className="text-sm text-muted">Network: polygon-amoy (80002)</div>
             <div className="text-sm text-muted">Payment: 0.01 USDC</div>
+            <div className="text-sm text-muted">Status: {status}</div>
           </div>
         </aside>
       </div>
