@@ -21,6 +21,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.14",
+    "@types/react-dom": "^19.1.9",
     "tsup": "^8.4.0",
     "turbo": "^2.5.0",
     "typescript": "^5.8.3"
