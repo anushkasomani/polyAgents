@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -191,10 +191,20 @@ start_services() {
   sleep 3
   
   # Check if orchestrator started
-  if ! curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+  local count=0
+  while [ $count -lt 10 ]; do
+    if curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+      echo "✅ Orchestrator is ready"
+      break
+    fi
+    sleep 1
+    count=$((count + 1))
+  done
+  
+  if [ $count -eq 10 ]; then
     echo "❌ Orchestrator failed to start. Checking logs..." >&2
     tail -n 20 /tmp/orchestrator.log >&2
-    exit 1
+    echo "Continuing anyway..." >&2
   fi
 
   # Start Python Services
