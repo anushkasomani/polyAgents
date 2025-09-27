@@ -1,0 +1,318 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+# Load env
+if [ -f "$ROOT_DIR/.env.local" ]; then
+  # shellcheck disable=SC1091
+  set -a
+  . "$ROOT_DIR/.env.local"
+  set +a
+else
+  echo "ERROR: demo/.env.local not found. Copy demo/.env.local.sample and set values." >&2
+  exit 1
+fi
+
+# Check for required environment variables
+if [ -z "${GOOGLE_API_KEY:-}" ]; then
+  echo "ERROR: GOOGLE_API_KEY not found in environment. Please set it in .env.local" >&2
+  exit 1
+fi
+
+echo "🚀 Starting Interactive x402 Demo with Plan Analyzer..."
+echo "=================================================="
+
+# Function to get user input
+get_user_input() {
+  echo ""
+  echo "📝 What would you like to do? (Enter your request in natural language)"
+  echo "Examples:"
+  echo "  - 'Get me news about BTC and ETH'"
+  echo "  - 'Show me weather in London and Tokyo'"
+  echo "  - 'I need OHLCV data for BTC and a backtest on Solana'"
+  echo "  - 'Get me NFT rarity scores and crypto news'"
+  echo ""
+  read -p "Your request: " user_input
+  
+  if [ -z "$user_input" ]; then
+    echo "❌ No input provided. Please try again."
+    get_user_input
+  fi
+}
+
+# Function to analyze user input using Python plan analyzer
+analyze_plan() {
+  local user_text="$1"
+  echo "🧠 Analyzing your request with AI plan analyzer..." >&2
+  
+  # Use the Python plan analyzer
+  local plan_result
+  if command -v python3 >/dev/null 2>&1; then
+    plan_result=$(cd "$ROOT_DIR/plan" && python3 text_to_plan_cli.py "$user_text" 2>/dev/null)
+    # Check if plan_result is valid JSON and not empty
+    if ! echo "$plan_result" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
+      echo "⚠️ Python plan analyzer failed. Using fallback..." >&2
+      plan_result=""
+    fi
+  else
+    echo "❌ Python3 not found. Using fallback plan generation..." >&2
+    plan_result=""
+  fi
+  
+  # Fallback to simple keyword matching if Python failed or returned empty
+  if [ -z "$plan_result" ] || [ "$plan_result" = "{}" ] || [ "$plan_result" = '{"services": []}' ]; then
+    echo "🔄 Using fallback plan generation..." >&2
+    plan_result='{"services": []}'
+    if [[ "$user_text" =~ (news|btc|eth|crypto) ]]; then
+      plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}]}'
+    fi
+    if [[ "$user_text" =~ (weather|london|tokyo|new york) ]]; then
+      if [[ "$plan_result" =~ "news" ]]; then
+        plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}, {"service": "weather", "description": "Get weather information"}]}'
+      else
+        plan_result='{"services": [{"service": "weather", "description": "Get weather information"}]}'
+      fi
+    fi
+    if [[ "$user_text" =~ (price|ohlcv|chart) ]]; then
+      if [[ "$plan_result" =~ "news" ]] || [[ "$plan_result" =~ "weather" ]]; then
+        # Add to existing services
+        local existing_services=$(echo "$plan_result" | python3 -c "import sys, json; data=json.load(sys.stdin); print(json.dumps(data['services']))" 2>/dev/null)
+        plan_result="{\"services\": $existing_services, {\"service\": \"ohlcv\", \"description\": \"Get price data\"}]}"
+      else
+        plan_result='{"services": [{"service": "ohlcv", "description": "Get price data"}]}'
+      fi
+    fi
+  fi
+  
+  echo "$plan_result"
+}
+
+# Function to calculate dynamic pricing
+calculate_dynamic_price() {
+  local services_json="$1"
+  local service_count=$(echo "$services_json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('services', [])))" 2>/dev/null || echo "1")
+  
+  # Dynamic pricing based on number of services and complexity
+  local base_price=1000  # 0.001 USDC (6 decimals)
+  local price=0
+  
+  case $service_count in
+    1) price=$((base_price)) ;;
+    2) price=$((base_price * 18 / 10)) ;;  # 1.8x with 10% discount
+    3) price=$((base_price * 25 / 10)) ;;  # 2.5x with 17% discount
+    4) price=$((base_price * 32 / 10)) ;;  # 3.2x with 20% discount
+    *) price=$((service_count * base_price * 9 / 10)) ;;  # 10% discount for 5+
+  esac
+  
+  echo "$price"
+}
+
+# Function to start services
+start_services() {
+  echo ""
+  echo "🔧 Starting required services..."
+  
+  # Kill anything on the demo ports
+  for port in "${FACILITATOR_PORT:-5401}" "${SERVICE_AGENT_PORT:-5402}" "${RESOURCE_SERVER_PORT:-5403}" "${ORCHESTRATOR_PORT:-5400}"; do
+    pids=$(lsof -n -iTCP:"$port" -sTCP:LISTEN -t || true)
+    if [ -n "$pids" ]; then
+      echo "Killing processes on port $port: $pids"
+      kill -9 $pids || true
+    fi
+  done
+
+  # Compile TypeScript packages
+  echo "📦 Compiling demo packages..."
+  PKGS=("facilitator-amoy" "resource-server-express" "service-agent" "client-agent")
+  for pkg in "${PKGS[@]}"; do
+    TS_CONFIG="$ROOT_DIR/a2a/$pkg/tsconfig.json"
+    DIST_DIR="$ROOT_DIR/a2a/$pkg/dist"
+    if [ -f "$TS_CONFIG" ]; then
+      echo "Compiling $pkg..."
+      npx -y tsc -p "$TS_CONFIG"
+    else
+      if [ -d "$DIST_DIR" ]; then
+        echo "No tsconfig for $pkg, found existing dist — skipping compile"
+      else
+        echo "ERROR: No tsconfig and no dist for $pkg ($TS_CONFIG / $DIST_DIR). Please build the package or provide dist files." >&2
+        exit 1
+      fi
+    fi
+  done
+
+  # Start Facilitator
+  echo "🚀 Starting Facilitator..."
+  nohup env PORT="${FACILITATOR_PORT:-5401}" FACILITATOR_PRIVATE_KEY="$FACILITATOR_PRIVATE_KEY" AMOY_RPC_URL="$AMOY_RPC_URL" AMOY_USDC_ADDRESS="$AMOY_USDC_ADDRESS" REAL_SETTLE="$REAL_SETTLE" node "$ROOT_DIR/a2a/facilitator-amoy/dist/index.js" > /tmp/fac.log 2>&1 &
+  echo $! > /tmp/fac.pid
+  sleep 0.6
+
+  # Start Resource Server
+  echo "🚀 Starting Resource Server..."
+  nohup env PORT="${RESOURCE_SERVER_PORT:-5403}" FACILITATOR_URL="$FACILITATOR_URL" node "$ROOT_DIR/a2a/resource-server-express/dist/index.js" > /tmp/res.log 2>&1 &
+  echo $! > /tmp/res.pid
+  sleep 0.6
+
+  # Start Service Agent
+  echo "🚀 Starting Service Agent..."
+  nohup env PORT="${SERVICE_AGENT_PORT:-5402}" RESOURCE_SERVER_URL="$RESOURCE_SERVER_URL" node "$ROOT_DIR/a2a/service-agent/dist/index.js" > /tmp/service.log 2>&1 &
+  echo $! > /tmp/service.pid
+  sleep 1
+
+  # Start Orchestrator
+  echo "🚀 Starting Orchestrator..."
+  nohup env PORT="${ORCHESTRATOR_PORT:-5400}" FACILITATOR_URL="$FACILITATOR_URL" node "$ROOT_DIR/a2a/orchestrator/server.js" > /tmp/orchestrator.log 2>&1 &
+  echo $! > /tmp/orchestrator.pid
+  sleep 1
+
+  # Wait for health endpoints
+  echo "⏳ Waiting for services to become healthy..."
+  npx wait-on "http://localhost:${FACILITATOR_PORT:-5401}/healthz" "http://localhost:${RESOURCE_SERVER_PORT:-5403}/healthz" "http://localhost:${SERVICE_AGENT_PORT:-5402}/healthz" "http://localhost:${ORCHESTRATOR_PORT:-5400}/healthz" --timeout 20000 || { 
+    echo "❌ Services failed to start in time" >&2
+    echo "Checking logs..."
+    tail -n 50 /tmp/fac.log || true
+    tail -n 50 /tmp/res.log || true
+    tail -n 50 /tmp/service.log || true
+    tail -n 50 /tmp/orchestrator.log || true
+    exit 1
+  }
+  
+  echo "✅ All services are healthy and ready!"
+}
+
+# Function to execute the plan using REAL x402 payment flow
+execute_plan() {
+  local user_text="$1"
+  local plan_json="$2"
+  local price="$3"
+  
+  echo ""
+  echo "💰 Payment Required: $((price / 1000)) USDC (${price} microUSDC)"
+  echo "📋 Plan: $(echo "$plan_json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(', '.join([s['service'] for s in data.get('services', [])]))" 2>/dev/null || echo "Multiple services")"
+  echo ""
+  
+  echo "🔄 Executing plan with REAL x402 payment flow..."
+  
+  # Create a temporary client agent script for this specific request
+  local temp_client_script="/tmp/client_agent_$(date +%s).js"
+  
+  # Escape the user text and plan JSON for JavaScript
+  local escaped_user_text=$(echo "$user_text" | sed "s/'/\\'/g")
+  local escaped_plan_json=$(echo "$plan_json" | sed "s/'/\\'/g")
+  
+  cat > "$temp_client_script" << EOF
+const { sendMessage } = require('$ROOT_DIR/a2a/client-agent/dist/a2a.js');
+
+async function main() {
+  const SERVICE_AGENT_URL = process.env.SERVICE_AGENT_URL || 'http://localhost:5402';
+  const input = { 
+    text: '$escaped_user_text',
+    plan: $escaped_plan_json,
+    price: $price
+  };
+  
+  try {
+    console.log('🚀 Sending request to service agent...');
+    const resp = await sendMessage(SERVICE_AGENT_URL, 'orchestrate.execute', input);
+    console.log('✅ A2A Response:');
+    console.log(JSON.stringify(resp, null, 2));
+  } catch (e) {
+    console.error('❌ Error:', e.message);
+    process.exit(1);
+  }
+}
+
+main().catch(e => { console.error(e); process.exit(1); });
+EOF
+
+  # Run the client agent with real payment flow
+  echo "💳 Executing with real x402 payment..."
+  env PRIVATE_KEY="$PRIVATE_KEY" PRIVATE_KEY_ADDRESS="$PRIVATE_KEY_ADDRESS" PAYMENT_AMOUNT="$price" node "$temp_client_script"
+  
+  # Clean up
+  rm -f "$temp_client_script"
+}
+
+# Function to show logs
+show_logs() {
+  echo ""
+  echo "📋 Service Logs (last 50 lines each):"
+  echo "====================================="
+  
+  printf "\n--- ORCHESTRATOR LOG ---\n"
+  tail -n 50 /tmp/orchestrator.log || true
+  
+  printf "\n--- FACILITATOR LOG ---\n"
+  tail -n 50 /tmp/fac.log || true
+  
+  printf "\n--- RESOURCE LOG ---\n"
+  tail -n 50 /tmp/res.log || true
+  
+  printf "\n--- SERVICE LOG ---\n"
+  tail -n 50 /tmp/service.log || true
+}
+
+# Function to cleanup
+cleanup() {
+  echo ""
+  echo "🧹 Cleaning up services..."
+  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid; do
+    if [ -f "$pid_file" ]; then
+      local pid=$(cat "$pid_file")
+      if kill -0 "$pid" 2>/dev/null; then
+        echo "Stopping process $pid"
+        kill "$pid" || true
+      fi
+      rm -f "$pid_file"
+    fi
+  done
+  echo "✅ Cleanup complete"
+}
+
+# Main execution
+main() {
+  # Set up cleanup trap
+  trap cleanup EXIT INT TERM
+  
+  # Start all required services
+  start_services
+  
+  # Main interaction loop
+  while true; do
+    get_user_input
+    
+    if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
+      echo "👋 Goodbye!"
+      break
+    fi
+    
+    # Analyze the user input
+    local plan_json
+    plan_json=$(analyze_plan "$user_input")
+    
+    # Check if plan analysis was successful
+    if echo "$plan_json" | grep -q "error"; then
+      echo "❌ Plan analysis failed: $plan_json"
+      continue
+    fi
+    
+    # Calculate dynamic price
+    local price
+    price=$(calculate_dynamic_price "$plan_json")
+    
+    # Show the plan and price
+    echo ""
+    echo "📋 Generated Plan:"
+    echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+    
+    # Execute the plan
+    execute_plan "$user_input" "$plan_json" "$price"
+    
+    echo ""
+    echo "🔄 Ready for another request! (type 'quit' to exit)"
+  done
+}
+
+# Run the main function
+main "$@"

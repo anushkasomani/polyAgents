@@ -1,6 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import axios from 'axios';
 import { createResourceClient, callPremiumSummarize } from './client/http.js';
 
 const app = express();
@@ -35,6 +36,45 @@ app.post('/a2a', async (req: any, res: any) => {
         // If resource server returned 402 with accepts, propagate that in error
         if (e.response && e.response.status === 402) {
           return res.json({ jsonrpc: '2.0', id, error: { code: 402, message: 'Payment Required', data: e.response.data } });
+        }
+        return res.json({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Server error', data: String(e) } });
+      }
+    }
+
+    if (skill === 'orchestrate.execute') {
+      // Handle orchestration requests - forward to orchestrator
+      const body = payload.input || {};
+      const orchestratorUrl = process.env.ORCHESTRATOR_URL || 'http://localhost:5400';
+      const clientPaymentHeader = req.headers['x-payment'] as string | undefined;
+
+      try {
+        if (clientPaymentHeader) {
+          // Client provided payment - execute the plan
+          const executeResp = await axios.post(`${orchestratorUrl}/execute`, {
+            plan: body.plan
+          }, {
+            headers: { 'X-Payment': clientPaymentHeader }
+          });
+          return res.json({ jsonrpc: '2.0', id, result: executeResp.data });
+        } else {
+          // No payment - get payment requirements
+          const processResp = await axios.post(`${orchestratorUrl}/process`, {
+            userText: body.text
+          });
+          return res.json({ jsonrpc: '2.0', id, result: processResp.data });
+        }
+      } catch (e: any) {
+        // If orchestrator returned 402 with accepts, propagate that in error
+        if (e.response && e.response.status === 402) {
+          return res.json({
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: 402,
+              message: 'Payment Required',
+              data: e.response.data
+            }
+          });
         }
         return res.json({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Server error', data: String(e) } });
       }

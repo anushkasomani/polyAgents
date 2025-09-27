@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 
 export async function createDemoPaymentPayload(from: string, to: string, value: string, verifyingContract: string) {
   const now = Math.floor(Date.now() / 1000);
-  const nonceRaw = Math.random().toString(36).slice(2);
+  const nonceRaw = `${now}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
   const nonce = ethers.id(nonceRaw); // bytes32
   const payload = {
     from,
