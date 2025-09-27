@@ -9,13 +9,14 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5400;
 const FACILITATOR_URL = process.env.FACILITATOR_URL || 'http://localhost:5401';
 
-// Service endpoints - using existing examples
+// Service endpoints - real Python services
 const SERVICE_ENDPOINTS = {
   'news': 'http://localhost:5404/news',
   'weather': 'http://localhost:5405/weather',
   'ohlcv': 'http://localhost:5406/ohlcv',
-  'nft': 'http://localhost:5407/nft',
-  'backtest': 'http://localhost:5408/backtest'
+  'geckoterminal': 'http://localhost:5404/geckoterminal',
+  'oracle': 'http://localhost:5407/oracle',
+  'sentiment': 'http://localhost:5408/sentiment'
 };
 
 // Simple plan generation (without Python for now)
@@ -41,23 +42,31 @@ function generatePlan(userText) {
   if (text.includes('price') || text.includes('ohlcv') || text.includes('chart')) {
     services.push({
       service: 'ohlcv',
-      description: 'Get price data'
+      description: 'Get OHLCV price data'
     });
   }
 
-  if (text.includes('nft') || text.includes('rarity')) {
+  if (text.includes('gecko') || text.includes('trending') || text.includes('pools')) {
     services.push({
-      service: 'nft',
-      description: 'Get NFT information'
+      service: 'geckoterminal',
+      description: 'Get trending pools from GeckoTerminal'
     });
   }
 
-  if (text.includes('backtest') || text.includes('trading') || text.includes('strategy')) {
+  if (text.includes('oracle') || text.includes('chainlink') || text.includes('price feed')) {
     services.push({
-      service: 'backtest',
-      description: 'Run trading backtest'
+      service: 'oracle',
+      description: 'Get Chainlink oracle price data'
     });
   }
+
+  if (text.includes('sentiment') || text.includes('mood') || text.includes('analysis')) {
+    services.push({
+      service: 'sentiment',
+      description: 'Get market sentiment analysis'
+    });
+  }
+
 
   return { services };
 }
@@ -127,19 +136,6 @@ function getMockServiceResult(serviceName, description) {
           { name: 'Eyes', value: 'Laser', rarity: 5 },
           { name: 'Hat', value: 'Crown', rarity: 2 }
         ],
-        timestamp: timestamp
-      };
-    case 'backtest':
-      return {
-        service: 'backtest',
-        description: description,
-        results: {
-          totalReturn: 15.5,
-          sharpeRatio: 1.8,
-          maxDrawdown: -5.2,
-          winRate: 65.5,
-          trades: 120
-        },
         timestamp: timestamp
       };
     default:

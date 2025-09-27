@@ -2,7 +2,7 @@ import axios from 'axios';
 import { createDemoPaymentPayload, encodePaymentPayload } from './payment.js';
 
 export async function sendMessage(serviceUrl: string, skill: string, input: any) {
-  const client = axios.create({ baseURL: serviceUrl, timeout: 15000 });
+  const client = axios.create({ baseURL: serviceUrl });
   const payload = { jsonrpc: '2.0', id: 1, method: 'message/send', params: { skill, input } };
   // First call without payment
   try {

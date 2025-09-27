@@ -31,8 +31,8 @@ get_user_input() {
   echo "Examples:"
   echo "  - 'Get me news about BTC and ETH'"
   echo "  - 'Show me weather in London and Tokyo'"
-  echo "  - 'I need OHLCV data for BTC and a backtest on Solana'"
-  echo "  - 'Get me NFT rarity scores and crypto news'"
+  echo "  - 'I need OHLCV data for BTC and trending pools'"
+  echo "  - 'Get me sentiment analysis and oracle prices'"
   echo ""
   read -p "Your request: " user_input
   
@@ -64,26 +64,43 @@ analyze_plan() {
   # Fallback to simple keyword matching if Python failed or returned empty
   if [ -z "$plan_result" ] || [ "$plan_result" = "{}" ] || [ "$plan_result" = '{"services": []}' ]; then
     echo "🔄 Using fallback plan generation..." >&2
-    plan_result='{"services": []}'
+    
+    # Build services array step by step
+    local services=()
+    
     if [[ "$user_text" =~ (news|btc|eth|crypto) ]]; then
-      plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}]}'
+      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
     fi
+    
     if [[ "$user_text" =~ (weather|london|tokyo|new york) ]]; then
-      if [[ "$plan_result" =~ "news" ]]; then
-        plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}, {"service": "weather", "description": "Get weather information"}]}'
-      else
-        plan_result='{"services": [{"service": "weather", "description": "Get weather information"}]}'
-      fi
+      services+=('{"service": "weather", "description": "Get weather information"}')
     fi
+    
     if [[ "$user_text" =~ (price|ohlcv|chart) ]]; then
-      if [[ "$plan_result" =~ "news" ]] || [[ "$plan_result" =~ "weather" ]]; then
-        # Add to existing services
-        local existing_services=$(echo "$plan_result" | python3 -c "import sys, json; data=json.load(sys.stdin); print(json.dumps(data['services']))" 2>/dev/null)
-        plan_result="{\"services\": $existing_services, {\"service\": \"ohlcv\", \"description\": \"Get price data\"}]}"
-      else
-        plan_result='{"services": [{"service": "ohlcv", "description": "Get price data"}]}'
-      fi
+      services+=('{"service": "ohlcv", "description": "Get OHLCV price data"}')
     fi
+    
+    if [[ "$user_text" =~ (gecko|trending|pools) ]]; then
+      services+=('{"service": "geckoterminal", "description": "Get trending pools from GeckoTerminal"}')
+    fi
+    
+    if [[ "$user_text" =~ (oracle|chainlink|price feed) ]]; then
+      services+=('{"service": "oracle", "description": "Get Chainlink oracle price data"}')
+    fi
+    
+    if [[ "$user_text" =~ (sentiment|mood|analysis) ]]; then
+      services+=('{"service": "sentiment", "description": "Get market sentiment analysis"}')
+    fi
+    
+    # If no services detected, default to news
+    if [ ${#services[@]} -eq 0 ]; then
+      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
+    fi
+    
+    # Build final JSON
+    local services_json=$(printf '%s,' "${services[@]}")
+    services_json=${services_json%,}  # Remove trailing comma
+    plan_result="{\"services\": [$services_json]}"
   fi
   
   echo "$plan_result"
@@ -162,9 +179,47 @@ start_services() {
 
   # Start Orchestrator
   echo "🚀 Starting Orchestrator..."
+  
+  # Install orchestrator dependencies if needed
+  if [ ! -d "$ROOT_DIR/a2a/orchestrator/node_modules" ]; then
+    echo "📦 Installing orchestrator dependencies..."
+    cd "$ROOT_DIR/a2a/orchestrator" && npm install --silent
+  fi
+  
   nohup env PORT="${ORCHESTRATOR_PORT:-5400}" FACILITATOR_URL="$FACILITATOR_URL" node "$ROOT_DIR/a2a/orchestrator/server.js" > /tmp/orchestrator.log 2>&1 &
   echo $! > /tmp/orchestrator.pid
-  sleep 1
+  sleep 3
+  
+  # Check if orchestrator started
+  if ! curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+    echo "❌ Orchestrator failed to start. Checking logs..." >&2
+    tail -n 20 /tmp/orchestrator.log >&2
+    exit 1
+  fi
+
+  # Start Python Services
+  echo "🐍 Starting Python Services..."
+  
+  # GeckoTerminal Service
+  nohup env PORT=5404 node "$ROOT_DIR/a2a/services/geckoterminal-service.js" > /tmp/geckoterminal.log 2>&1 &
+  echo $! > /tmp/geckoterminal.pid
+  sleep 0.5
+
+  # OHLCV Service  
+  nohup env PORT=5406 node "$ROOT_DIR/a2a/services/ohlcv-service.js" > /tmp/ohlcv.log 2>&1 &
+  echo $! > /tmp/ohlcv.pid
+  sleep 0.5
+
+  # Oracle Service
+  nohup env PORT=5407 node "$ROOT_DIR/a2a/services/oracle-service.js" > /tmp/oracle.log 2>&1 &
+  echo $! > /tmp/oracle.pid
+  sleep 0.5
+
+  # Sentiment Service
+  nohup env PORT=5408 node "$ROOT_DIR/a2a/services/sentiment-service.js" > /tmp/sentiment.log 2>&1 &
+  echo $! > /tmp/sentiment.pid
+  sleep 0.5
+
 
   # Wait for health endpoints
   echo "⏳ Waiting for services to become healthy..."
@@ -219,6 +274,13 @@ async function main() {
     console.log(JSON.stringify(resp, null, 2));
   } catch (e) {
     console.error('❌ Error:', e.message);
+    if (e.response) {
+      console.error('Response status:', e.response.status);
+      console.error('Response data:', e.response.data);
+    }
+    if (e.code === 'ECONNREFUSED') {
+      console.error('❌ Connection refused. Make sure all services are running.');
+    }
     process.exit(1);
   }
 }
@@ -257,7 +319,7 @@ show_logs() {
 cleanup() {
   echo ""
   echo "🧹 Cleaning up services..."
-  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid; do
+  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid; do
     if [ -f "$pid_file" ]; then
       local pid=$(cat "$pid_file")
       if kill -0 "$pid" 2>/dev/null; then
