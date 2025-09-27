@@ -29,10 +29,10 @@ get_user_input() {
   echo ""
   echo "📝 What would you like to do? (Enter your request in natural language)"
   echo "Examples:"
-  echo "  - 'Get me news about BTC and ETH'"
+  echo "  - 'Get me tokens that broke in 15m'"
   echo "  - 'Show me weather in London and Tokyo'"
   echo "  - 'I need OHLCV data for BTC and trending pools'"
-  echo "  - 'Get me sentiment analysis and oracle prices'"
+  echo "  - 'Get me sentiment analysis and oracle prices on Polygon'"
   echo ""
   read -p "Your request: " user_input
   
@@ -68,7 +68,7 @@ analyze_plan() {
     # Build services array step by step
     local services=()
     
-    if [[ "$user_text" =~ (news|btc|eth|crypto) ]]; then
+    if [[ "$user_text" =~ (news|trending news|x|twitter|reddit|btc|eth|crypto) ]]; then
       services+=('{"service": "news", "description": "Get cryptocurrency news"}')
     fi
     
@@ -80,7 +80,7 @@ analyze_plan() {
       services+=('{"service": "ohlcv", "description": "Get OHLCV price data"}')
     fi
     
-    if [[ "$user_text" =~ (gecko|trending|pools) ]]; then
+    if [[ "$user_text" =~ (gecko|trending token|pools) ]]; then
       services+=('{"service": "geckoterminal", "description": "Get trending pools from GeckoTerminal"}')
     fi
     
@@ -223,15 +223,28 @@ start_services() {
 
   # Wait for health endpoints
   echo "⏳ Waiting for services to become healthy..."
-  npx wait-on "http://localhost:${FACILITATOR_PORT:-5401}/healthz" "http://localhost:${RESOURCE_SERVER_PORT:-5403}/healthz" "http://localhost:${SERVICE_AGENT_PORT:-5402}/healthz" "http://localhost:${ORCHESTRATOR_PORT:-5400}/healthz" --timeout 20000 || { 
-    echo "❌ Services failed to start in time" >&2
-    echo "Checking logs..."
-    tail -n 50 /tmp/fac.log || true
-    tail -n 50 /tmp/res.log || true
-    tail -n 50 /tmp/service.log || true
-    tail -n 50 /tmp/orchestrator.log || true
-    exit 1
-  }
+  
+  # Wait for each service individually with longer timeout
+  for service in "facilitator:${FACILITATOR_PORT:-5401}" "resource:${RESOURCE_SERVER_PORT:-5403}" "service-agent:${SERVICE_AGENT_PORT:-5402}" "orchestrator:${ORCHESTRATOR_PORT:-5400}"; do
+    local name=$(echo "$service" | cut -d: -f1)
+    local port=$(echo "$service" | cut -d: -f2)
+    local url="http://localhost:$port/healthz"
+    
+    echo "Waiting for $name on port $port..."
+    local count=0
+    while [ $count -lt 30 ]; do
+      if curl -s "$url" > /dev/null 2>&1; then
+        echo "✅ $name is ready"
+        break
+      fi
+      sleep 1
+      count=$((count + 1))
+    done
+    
+    if [ $count -eq 30 ]; then
+      echo "⚠️ $name failed to start in time, continuing anyway..." >&2
+    fi
+  done
   
   echo "✅ All services are healthy and ready!"
 }
@@ -340,40 +353,71 @@ main() {
   # Start all required services
   start_services
   
-  # Main interaction loop
-  while true; do
-    get_user_input
+  # Check if input is being piped
+  if [ -t 0 ]; then
+    # Interactive mode
+    while true; do
+      get_user_input
+      
+      if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
+        echo "👋 Goodbye!"
+        break
+      fi
+      
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        continue
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
+      
+      echo ""
+      echo "🔄 Ready for another request! (type 'quit' to exit)"
+    done
+  else
+    # Piped input mode - process single request
+    local user_input
+    read -r user_input
     
-    if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
-      echo "👋 Goodbye!"
-      break
+    if [ -n "$user_input" ]; then
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        exit 1
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
     fi
-    
-    # Analyze the user input
-    local plan_json
-    plan_json=$(analyze_plan "$user_input")
-    
-    # Check if plan analysis was successful
-    if echo "$plan_json" | grep -q "error"; then
-      echo "❌ Plan analysis failed: $plan_json"
-      continue
-    fi
-    
-    # Calculate dynamic price
-    local price
-    price=$(calculate_dynamic_price "$plan_json")
-    
-    # Show the plan and price
-    echo ""
-    echo "📋 Generated Plan:"
-    echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
-    
-    # Execute the plan
-    execute_plan "$user_input" "$plan_json" "$price"
-    
-    echo ""
-    echo "🔄 Ready for another request! (type 'quit' to exit)"
-  done
+  fi
 }
 
 # Run the main function

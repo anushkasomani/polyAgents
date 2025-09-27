@@ -93,7 +93,7 @@ app.post('/geckoterminal', async (req, res) => {
     console.log(`📊 GECKOTERMINAL: Processing ${service} request`);
 
     // Call the Python geckoterminal service with virtual environment
-    const pythonScript = path.join(__dirname, 'test_geckoterminal.py');
+    const pythonScript = path.join(__dirname, 'geckoterminal.py');
     const python = spawn('python3', [pythonScript], {
       cwd: __dirname,
       env: {
