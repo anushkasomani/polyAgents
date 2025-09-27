@@ -141,22 +141,22 @@ Now produce the JSON plan for this user text: {user_text}
         print(f"Gemini generation error: {e}")
         return {"services": []}
 
-# --- This is the new part for testing ---
-if __name__ == "__main__":
-    print("Starting script...")
+# # --- This is the new part for testing ---
+# if __name__ == "__main__":
+#     print("Starting script...")
     
-    # Define a test prompt
-    test_prompt = "Find me flight prices from New York to London for next month. Also, tell me the current time in Tokyo."
+#     # Define a test prompt
+#     test_prompt = "Find me flight prices from New York to London for next month. Also, tell me the current time in Tokyo."
     
-    print(f"Test prompt: {test_prompt}")
-    print("Calling build_plan_with_gemini...")
+#     print(f"Test prompt: {test_prompt}")
+#     print("Calling build_plan_with_gemini...")
     
-    # Call the function with the test prompt
-    generated_plan = build_plan_with_gemini(test_prompt)
+#     # Call the function with the test prompt
+#     generated_plan = build_plan_with_gemini(test_prompt)
     
-    # Print the result
-    print("Test Prompt:")
-    print(test_prompt)
-    print("\nGenerated Plan:")
-    print(json.dumps(generated_plan, indent=2))
+#     # Print the result
+#     print("Test Prompt:")
+#     print(test_prompt)
+#     print("\nGenerated Plan:")
+#     print(json.dumps(generated_plan, indent=2))
 

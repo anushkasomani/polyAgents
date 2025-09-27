@@ -29,10 +29,10 @@ get_user_input() {
   echo ""
   echo "📝 What would you like to do? (Enter your request in natural language)"
   echo "Examples:"
-  echo "  - 'Get me news about BTC and ETH'"
+  echo "  - 'Get me tokens that broke in 15m'"
   echo "  - 'Show me weather in London and Tokyo'"
-  echo "  - 'I need OHLCV data for BTC and a backtest on Solana'"
-  echo "  - 'Get me NFT rarity scores and crypto news'"
+  echo "  - 'I need OHLCV data for BTC and trending pools'"
+  echo "  - 'Get me sentiment analysis and oracle prices on Polygon'"
   echo ""
   read -p "Your request: " user_input
   
@@ -64,26 +64,43 @@ analyze_plan() {
   # Fallback to simple keyword matching if Python failed or returned empty
   if [ -z "$plan_result" ] || [ "$plan_result" = "{}" ] || [ "$plan_result" = '{"services": []}' ]; then
     echo "🔄 Using fallback plan generation..." >&2
-    plan_result='{"services": []}'
-    if [[ "$user_text" =~ (news|btc|eth|crypto) ]]; then
-      plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}]}'
+    
+    # Build services array step by step
+    local services=()
+    
+    if [[ "$user_text" =~ (news|trending news|x|twitter|reddit|btc|eth|crypto) ]]; then
+      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
     fi
+    
     if [[ "$user_text" =~ (weather|london|tokyo|new york) ]]; then
-      if [[ "$plan_result" =~ "news" ]]; then
-        plan_result='{"services": [{"service": "news", "description": "Get cryptocurrency news"}, {"service": "weather", "description": "Get weather information"}]}'
-      else
-        plan_result='{"services": [{"service": "weather", "description": "Get weather information"}]}'
-      fi
+      services+=('{"service": "weather", "description": "Get weather information"}')
     fi
+    
     if [[ "$user_text" =~ (price|ohlcv|chart) ]]; then
-      if [[ "$plan_result" =~ "news" ]] || [[ "$plan_result" =~ "weather" ]]; then
-        # Add to existing services
-        local existing_services=$(echo "$plan_result" | python3 -c "import sys, json; data=json.load(sys.stdin); print(json.dumps(data['services']))" 2>/dev/null)
-        plan_result="{\"services\": $existing_services, {\"service\": \"ohlcv\", \"description\": \"Get price data\"}]}"
-      else
-        plan_result='{"services": [{"service": "ohlcv", "description": "Get price data"}]}'
-      fi
+      services+=('{"service": "ohlcv", "description": "Get OHLCV price data"}')
     fi
+    
+    if [[ "$user_text" =~ (gecko|trending token|pools) ]]; then
+      services+=('{"service": "geckoterminal", "description": "Get trending pools from GeckoTerminal"}')
+    fi
+    
+    if [[ "$user_text" =~ (oracle|chainlink|price feed) ]]; then
+      services+=('{"service": "oracle", "description": "Get Chainlink oracle price data"}')
+    fi
+    
+    if [[ "$user_text" =~ (sentiment|mood|analysis) ]]; then
+      services+=('{"service": "sentiment", "description": "Get market sentiment analysis"}')
+    fi
+    
+    # If no services detected, default to news
+    if [ ${#services[@]} -eq 0 ]; then
+      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
+    fi
+    
+    # Build final JSON
+    local services_json=$(printf '%s,' "${services[@]}")
+    services_json=${services_json%,}  # Remove trailing comma
+    plan_result="{\"services\": [$services_json]}"
   fi
   
   echo "$plan_result"
@@ -162,21 +179,72 @@ start_services() {
 
   # Start Orchestrator
   echo "🚀 Starting Orchestrator..."
+  
+  # Install orchestrator dependencies if needed
+  if [ ! -d "$ROOT_DIR/a2a/orchestrator/node_modules" ]; then
+    echo "📦 Installing orchestrator dependencies..."
+    cd "$ROOT_DIR/a2a/orchestrator" && npm install --silent
+  fi
+  
   nohup env PORT="${ORCHESTRATOR_PORT:-5400}" FACILITATOR_URL="$FACILITATOR_URL" node "$ROOT_DIR/a2a/orchestrator/server.js" > /tmp/orchestrator.log 2>&1 &
   echo $! > /tmp/orchestrator.pid
-  sleep 1
+  sleep 3
+  
+  # Check if orchestrator started
+  if ! curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+    echo "❌ Orchestrator failed to start. Checking logs..." >&2
+    tail -n 20 /tmp/orchestrator.log >&2
+    exit 1
+  fi
+
+  # Start Python Services
+  echo "🐍 Starting Python Services..."
+  
+  # GeckoTerminal Service
+  nohup env PORT=5404 node "$ROOT_DIR/a2a/services/geckoterminal-service.js" > /tmp/geckoterminal.log 2>&1 &
+  echo $! > /tmp/geckoterminal.pid
+  sleep 0.5
+
+  # OHLCV Service  
+  nohup env PORT=5406 node "$ROOT_DIR/a2a/services/ohlcv-service.js" > /tmp/ohlcv.log 2>&1 &
+  echo $! > /tmp/ohlcv.pid
+  sleep 0.5
+
+  # Oracle Service
+  nohup env PORT=5407 node "$ROOT_DIR/a2a/services/oracle-service.js" > /tmp/oracle.log 2>&1 &
+  echo $! > /tmp/oracle.pid
+  sleep 0.5
+
+  # Sentiment Service
+  nohup env PORT=5408 node "$ROOT_DIR/a2a/services/sentiment-service.js" > /tmp/sentiment.log 2>&1 &
+  echo $! > /tmp/sentiment.pid
+  sleep 0.5
+
 
   # Wait for health endpoints
   echo "⏳ Waiting for services to become healthy..."
-  npx wait-on "http://localhost:${FACILITATOR_PORT:-5401}/healthz" "http://localhost:${RESOURCE_SERVER_PORT:-5403}/healthz" "http://localhost:${SERVICE_AGENT_PORT:-5402}/healthz" "http://localhost:${ORCHESTRATOR_PORT:-5400}/healthz" --timeout 20000 || { 
-    echo "❌ Services failed to start in time" >&2
-    echo "Checking logs..."
-    tail -n 50 /tmp/fac.log || true
-    tail -n 50 /tmp/res.log || true
-    tail -n 50 /tmp/service.log || true
-    tail -n 50 /tmp/orchestrator.log || true
-    exit 1
-  }
+  
+  # Wait for each service individually with longer timeout
+  for service in "facilitator:${FACILITATOR_PORT:-5401}" "resource:${RESOURCE_SERVER_PORT:-5403}" "service-agent:${SERVICE_AGENT_PORT:-5402}" "orchestrator:${ORCHESTRATOR_PORT:-5400}"; do
+    local name=$(echo "$service" | cut -d: -f1)
+    local port=$(echo "$service" | cut -d: -f2)
+    local url="http://localhost:$port/healthz"
+    
+    echo "Waiting for $name on port $port..."
+    local count=0
+    while [ $count -lt 30 ]; do
+      if curl -s "$url" > /dev/null 2>&1; then
+        echo "✅ $name is ready"
+        break
+      fi
+      sleep 1
+      count=$((count + 1))
+    done
+    
+    if [ $count -eq 30 ]; then
+      echo "⚠️ $name failed to start in time, continuing anyway..." >&2
+    fi
+  done
   
   echo "✅ All services are healthy and ready!"
 }
@@ -219,6 +287,13 @@ async function main() {
     console.log(JSON.stringify(resp, null, 2));
   } catch (e) {
     console.error('❌ Error:', e.message);
+    if (e.response) {
+      console.error('Response status:', e.response.status);
+      console.error('Response data:', e.response.data);
+    }
+    if (e.code === 'ECONNREFUSED') {
+      console.error('❌ Connection refused. Make sure all services are running.');
+    }
     process.exit(1);
   }
 }
@@ -257,7 +332,7 @@ show_logs() {
 cleanup() {
   echo ""
   echo "🧹 Cleaning up services..."
-  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid; do
+  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid; do
     if [ -f "$pid_file" ]; then
       local pid=$(cat "$pid_file")
       if kill -0 "$pid" 2>/dev/null; then
@@ -278,40 +353,71 @@ main() {
   # Start all required services
   start_services
   
-  # Main interaction loop
-  while true; do
-    get_user_input
+  # Check if input is being piped
+  if [ -t 0 ]; then
+    # Interactive mode
+    while true; do
+      get_user_input
+      
+      if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
+        echo "👋 Goodbye!"
+        break
+      fi
+      
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        continue
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
+      
+      echo ""
+      echo "🔄 Ready for another request! (type 'quit' to exit)"
+    done
+  else
+    # Piped input mode - process single request
+    local user_input
+    read -r user_input
     
-    if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
-      echo "👋 Goodbye!"
-      break
+    if [ -n "$user_input" ]; then
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        exit 1
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
     fi
-    
-    # Analyze the user input
-    local plan_json
-    plan_json=$(analyze_plan "$user_input")
-    
-    # Check if plan analysis was successful
-    if echo "$plan_json" | grep -q "error"; then
-      echo "❌ Plan analysis failed: $plan_json"
-      continue
-    fi
-    
-    # Calculate dynamic price
-    local price
-    price=$(calculate_dynamic_price "$plan_json")
-    
-    # Show the plan and price
-    echo ""
-    echo "📋 Generated Plan:"
-    echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
-    
-    # Execute the plan
-    execute_plan "$user_input" "$plan_json" "$price"
-    
-    echo ""
-    echo "🔄 Ready for another request! (type 'quit' to exit)"
-  done
+  fi
 }
 
 # Run the main function
