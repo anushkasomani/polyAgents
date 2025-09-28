@@ -10,39 +10,39 @@
     /* Base colors - Soft blues and clean whites */
     --background: 210 40% 98%;
     --foreground: 215 25% 27%;
-    
+
     /* Card system with glassmorphism */
     --card: 0 0% 100%;
     --card-foreground: 215 25% 27%;
     --card-border: 214 32% 91%;
-    
+
     /* Popover system */
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 27%;
-    
+
     /* Primary - Soft Blues */
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 217 91% 55%;
     --primary-light: 217 91% 95%;
-    
+
     /* Secondary - Gentle Greens */
     --secondary: 158 64% 52%;
     --secondary-foreground: 0 0% 100%;
     --secondary-hover: 158 64% 47%;
     --secondary-light: 158 64% 95%;
-    
+
     /* Accent - Warm Coral */
     --accent: 43 96% 56%;
     --accent-foreground: 0 0% 100%;
     --accent-hover: 43 96% 51%;
     --accent-light: 43 96% 95%;
-    
+
     /* Neutral system */
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
     --muted-dark: 215 25% 27%;
-    
+
     /* Status colors */
     --success: 158 64% 52%;
     --success-foreground: 0 0% 100%;
@@ -50,32 +50,32 @@
     --warning-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    
+
     /* Border and input system */
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 217 91% 60%;
-    
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(217 91% 55%) 100%);
     --gradient-secondary: linear-gradient(135deg, hsl(158 64% 52%) 0%, hsl(158 64% 47%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(43 96% 51%) 100%);
     --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
-    --gradient-mesh: radial-gradient(at 40% 20%, hsl(217 91% 60% / 0.3) 0px, transparent 50%), 
-                     radial-gradient(at 80% 0%, hsl(158 64% 52% / 0.2) 0px, transparent 50%), 
-                     radial-gradient(at 0% 50%, hsl(43 96% 56% / 0.2) 0px, transparent 50%);
-    
+    --gradient-mesh: radial-gradient(at 40% 20%, hsl(217 91% 60% / 0.3) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(158 64% 52% / 0.2) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(43 96% 56% / 0.2) 0px, transparent 50%);
+
     /* Shadows */
     --shadow-soft: 0 2px 8px hsl(215 25% 27% / 0.05);
     --shadow-medium: 0 8px 25px hsl(215 25% 27% / 0.1);
     --shadow-large: 0 20px 40px hsl(215 25% 27% / 0.15);
     --shadow-glass: 0 8px 32px hsl(217 91% 60% / 0.15);
-    
+
     /* Animation timings */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-medium: 300ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
-    
+
     --radius: 12px;
 
     --sidebar-background: 0 0% 98%;
@@ -99,50 +99,50 @@
     /* Dark mode - Deep blues with soft whites */
     --background: 215 28% 9%;
     --foreground: 210 40% 98%;
-    
+
     /* Card system */
     --card: 215 25% 12%;
     --card-foreground: 210 40% 98%;
     --card-border: 215 25% 20%;
-    
+
     /* Popover system */
     --popover: 215 25% 12%;
     --popover-foreground: 210 40% 98%;
-    
+
     /* Primary adjustments for dark mode */
     --primary: 217 91% 65%;
     --primary-foreground: 215 28% 9%;
     --primary-hover: 217 91% 70%;
     --primary-light: 217 91% 15%;
-    
+
     /* Secondary adjustments */
     --secondary: 158 64% 57%;
     --secondary-foreground: 215 28% 9%;
     --secondary-hover: 158 64% 62%;
     --secondary-light: 158 64% 15%;
-    
+
     /* Accent adjustments */
     --accent: 43 96% 61%;
     --accent-foreground: 215 28% 9%;
     --accent-hover: 43 96% 66%;
     --accent-light: 43 96% 15%;
-    
+
     /* Neutral adjustments */
     --muted: 215 25% 16%;
     --muted-foreground: 215 16% 65%;
     --muted-dark: 210 40% 98%;
-    
+
     /* Border and input adjustments */
     --border: 215 25% 20%;
     --input: 215 25% 20%;
     --ring: 217 91% 65%;
-    
+
     /* Dark mode gradients */
     --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    --gradient-mesh: radial-gradient(at 40% 20%, hsl(217 91% 65% / 0.2) 0px, transparent 50%), 
-                     radial-gradient(at 80% 0%, hsl(158 64% 57% / 0.15) 0px, transparent 50%), 
-                     radial-gradient(at 0% 50%, hsl(43 96% 61% / 0.15) 0px, transparent 50%);
-    
+    --gradient-mesh: radial-gradient(at 40% 20%, hsl(217 91% 65% / 0.2) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(158 64% 57% / 0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(43 96% 61% / 0.15) 0px, transparent 50%);
+
     /* Dark mode shadows */
     --shadow-soft: 0 2px 8px hsl(0 0% 0% / 0.3);
     --shadow-medium: 0 8px 25px hsl(0 0% 0% / 0.4);
@@ -175,6 +175,7 @@
 }
 
 @layer components {
+
   /* Glass morphism effect */
   .glass {
     background: var(--gradient-glass);
@@ -216,10 +217,13 @@
   }
 
   @keyframes pulse-ring {
-    0%, 100% {
+
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
+
     50% {
       opacity: 0.5;
       transform: scale(1.05);
@@ -228,19 +232,27 @@
 
   /* Flowing gradient animation */
   .flowing-gradient {
-    background: linear-gradient(-45deg, 
-      hsl(var(--primary)), 
-      hsl(var(--secondary)), 
-      hsl(var(--accent)), 
-      hsl(var(--primary)));
+    background: linear-gradient(-45deg,
+        hsl(var(--primary)),
+        hsl(var(--secondary)),
+        hsl(var(--accent)),
+        hsl(var(--primary)));
     background-size: 400% 400%;
     animation: gradient-flow 15s ease infinite;
   }
 
   @keyframes gradient-flow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
   }
 
   /* Neural network loading animation */
@@ -253,6 +265,7 @@
       opacity: 0.6;
       transform: scale(0.95);
     }
+
     100% {
       opacity: 1;
       transform: scale(1.05);

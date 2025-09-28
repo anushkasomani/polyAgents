@@ -43,53 +43,53 @@ interface DashboardProps {
 const featuredAgents: Agent[] = [
   {
     id: "1",
-    name: "Polygon Oracle Network",
-    description: "Real-time blockchain data aggregation and price feeds. Provides secure, decentralized oracle services for DeFi protocols with sub-second latency.",
+    name: "Chainlink Price Feeds",
+    description: "Decentralized price feeds for cryptocurrencies, commodities, and forex. Secure, reliable data for DeFi applications with 99.9% uptime.",
     category: "oracle",
     rating: 4.9,
-    reviews: 2847,
-    price: 0.25,
-    responseTime: "< 2s",
+    reviews: 1247,
+    price: 0.15,
+    responseTime: "< 1s",
     availability: "online",
-    tags: ["Oracle", "Price Feeds", "DeFi", "Real-time"],
+    tags: ["Price Feeds", "DeFi", "Chainlink", "Secure"],
   },
   {
     id: "2",
-    name: "Sentiment Intelligence",
-    description: "Advanced NLP models analyzing crypto market sentiment from social media, news, and trading patterns. Delivers actionable market insights.",
+    name: "Market Sentiment API",
+    description: "Real-time sentiment analysis from Twitter, Reddit, and news sources. Provides market mood indicators and trend predictions.",
     category: "analytics",
-    rating: 4.8,
-    reviews: 1923,
-    price: 0.15,
-    responseTime: "< 30s",
+    rating: 4.7,
+    reviews: 892,
+    price: 0.08,
+    responseTime: "< 5s",
     availability: "online",
-    tags: ["NLP", "Sentiment", "Trading", "Social Media"],
+    tags: ["Sentiment", "Social Media", "AI", "Predictions"],
   },
   {
     id: "3",
-    name: "GeckoTerminal Analytics",
-    description: "Comprehensive DEX analytics and trending token discovery. Track liquidity pools, volume patterns, and emerging opportunities across Polygon.",
+    name: "DEX Aggregator",
+    description: "Multi-DEX price comparison and optimal routing. Find the best prices across Uniswap, SushiSwap, QuickSwap, and more.",
     category: "analytics",
-    rating: 4.7,
-    reviews: 1456,
-    price: 0.30,
-    responseTime: "< 15s",
+    rating: 4.8,
+    reviews: 2156,
+    price: 0.12,
+    responseTime: "< 3s",
     availability: "online",
-    tags: ["DEX", "Analytics", "Trending", "Liquidity"],
+    tags: ["DEX", "Routing", "Price Comparison", "Optimization"],
   },
 ];
 
 const recentActivity = [
-  { id: 1, action: "BTC price feed updated", agent: "Polygon Oracle Network", time: "2 minutes ago", status: "completed" },
-  { id: 2, action: "Market sentiment analysis", agent: "Sentiment Intelligence", time: "5 minutes ago", status: "completed" },
-  { id: 3, action: "DEX liquidity scan", agent: "GeckoTerminal Analytics", time: "8 minutes ago", status: "completed" },
+  { id: 1, action: "ETH/USD price updated", agent: "Chainlink Price Feeds", time: "1 minute ago", status: "completed" },
+  { id: 2, action: "Market sentiment analysis", agent: "Market Sentiment API", time: "3 minutes ago", status: "completed" },
+  { id: 3, action: "DEX route optimization", agent: "DEX Aggregator", time: "5 minutes ago", status: "completed" },
 ];
 
 const stats = [
-  { label: "Total Requests", value: "12,847", icon: Target, color: "text-primary" },
-  { label: "Active Services", value: "7", icon: Cpu, color: "text-secondary" },
-  { label: "Avg. Response", value: "< 2.3s", icon: Clock, color: "text-accent" },
-  { label: "Uptime", value: "99.97%", icon: TrendingUp, color: "text-success" },
+  { label: "Total Requests", value: "8,429", icon: Target, color: "text-primary" },
+  { label: "Active Services", value: "3", icon: Cpu, color: "text-secondary" },
+  { label: "Avg. Response", value: "< 2.1s", icon: Clock, color: "text-accent" },
+  { label: "Uptime", value: "99.9%", icon: TrendingUp, color: "text-success" },
 ];
 
 export function Dashboard({ onStartIntent }: DashboardProps) {
@@ -171,7 +171,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
           className="text-center mb-16"
         >
           {/* Hero Visual */}
-          <div className="relative mb-12">
+          <div className="relative mb-6">
             <div className="relative mx-auto w-full max-w-4xl">
               {/* Central Network Visualization */}
               <div className="relative w-full h-64 flex items-center justify-center">
@@ -180,7 +180,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
                   <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center shadow-2xl animate-pulse">
                     <Network className="w-10 h-10 text-primary-foreground" />
                   </div>
-                  
+
                   {/* Orbiting Services */}
                   <div className="absolute inset-0 animate-spin" style={{ animationDuration: '20s' }}>
                     <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-8 w-12 h-12 rounded-full bg-gradient-secondary flex items-center justify-center shadow-lg">
@@ -196,7 +196,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
                       <Globe className="w-6 h-6 text-white" />
                     </div>
                   </div>
-                  
+
                   {/* Connection Lines */}
                   <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
                     <defs>
@@ -223,12 +223,12 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
           >
             <h2 className="text-5xl md:text-7xl font-bold text-foreground mb-6 leading-tight">
               Decentralized
-              <span className="bg-gradient-primary bg-clip-text text-transparent block">Microservices</span>
+              <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent block">Microservices</span>
               <span className="text-4xl md:text-5xl block mt-2">on Polygon</span>
             </h2>
             <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-              Pay-per-use blockchain microservices with instant settlement. 
-              <span className="text-foreground font-semibold"> Oracle feeds, sentiment analysis, DEX analytics</span> — 
+              Pay-per-use blockchain microservices with instant settlement.
+              <span className="text-foreground font-semibold"> Price feeds, sentiment analysis, DEX routing</span> —
               all powered by the X402 payment protocol.
             </p>
           </motion.div>
@@ -268,30 +268,30 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
             transition={{ delay: 0.9, duration: 0.8 }}
             className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
           >
-            <div className="flex items-center gap-3 p-4 rounded-xl glass border border-primary/20">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-primary" />
+            <div className="group flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-primary/20 hover:border-primary/40 transition-all duration-300 hover:shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Lock className="w-6 h-6 text-primary" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-foreground">Secure Payments</h3>
+                <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">Secure Payments</h3>
                 <p className="text-sm text-muted-foreground">USDC on Polygon</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl glass border border-secondary/20">
-              <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-secondary" />
+            <div className="group flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-secondary/20 hover:border-secondary/40 transition-all duration-300 hover:shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Zap className="w-6 h-6 text-secondary" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-foreground">Instant Execution</h3>
+                <h3 className="font-bold text-foreground group-hover:text-secondary transition-colors">Instant Execution</h3>
                 <p className="text-sm text-muted-foreground">Sub-second response</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl glass border border-accent/20">
-              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-accent" />
+            <div className="group flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-accent/20 hover:border-accent/40 transition-all duration-300 hover:shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <CheckCircle2 className="w-6 h-6 text-accent" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-foreground">99.97% Uptime</h3>
+                <h3 className="font-bold text-foreground group-hover:text-accent transition-colors">99.9% Uptime</h3>
                 <p className="text-sm text-muted-foreground">Reliable infrastructure</p>
               </div>
             </div>
@@ -312,13 +312,13 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 + index * 0.1 }}
             >
-              <Card className="p-6 glass border-0 hover:shadow-medium transition-all duration-medium group">
+              <Card className="p-6 bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-border hover:shadow-xl transition-all duration-300 group">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color === 'text-primary' ? 'from-primary/20 to-primary/10' : stat.color === 'text-secondary' ? 'from-secondary/20 to-secondary/10' : stat.color === 'text-accent' ? 'from-accent/20 to-accent/10' : 'from-success/20 to-success/10'} group-hover:scale-110 transition-transform duration-medium`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.color === 'text-primary' ? 'from-primary/20 to-primary/10' : stat.color === 'text-secondary' ? 'from-secondary/20 to-secondary/10' : stat.color === 'text-accent' ? 'from-accent/20 to-accent/10' : 'from-success/20 to-success/10'} group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                    <stat.icon className={`w-7 h-7 ${stat.color}`} />
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors">{stat.value}</p>
+                    <p className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">{stat.value}</p>
                     <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
                   </div>
                 </div>
@@ -346,10 +346,10 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
           >
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-3xl font-bold text-foreground mb-2">Live Services</h3>
-                <p className="text-muted-foreground">Real-time blockchain microservices</p>
+                <h3 className="text-3xl font-bold text-foreground mb-2">Available Services</h3>
+                <p className="text-muted-foreground">Production-ready blockchain microservices</p>
               </div>
-              <Button variant="outline" size="sm" className="group">
+              <Button variant="outline" size="sm" className="group hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300">
                 View All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>
@@ -379,8 +379,8 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
             transition={{ delay: 0.4 }}
           >
             <div className="mb-8">
-              <h3 className="text-2xl font-bold text-foreground mb-2">Network Activity</h3>
-              <p className="text-muted-foreground">Real-time service executions</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2">Recent Activity</h3>
+              <p className="text-muted-foreground">Latest service executions</p>
             </div>
 
             <div className="space-y-4">
@@ -391,26 +391,26 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 + index * 0.1 }}
                 >
-                  <Card className="p-4 hover:shadow-medium transition-all cursor-pointer group border border-success/20 hover:border-success/40">
-                    <div className="flex items-start gap-3">
+                  <Card className="p-5 hover:shadow-lg transition-all duration-300 cursor-pointer group border border-success/20 hover:border-success/40 bg-gradient-to-r from-success/5 to-transparent">
+                    <div className="flex items-start gap-4">
                       <div className="relative">
-                        <div className="w-3 h-3 rounded-full bg-success mt-1 animate-pulse" />
-                        <div className="absolute inset-0 w-3 h-3 rounded-full bg-success/30 animate-ping" />
+                        <div className="w-4 h-4 rounded-full bg-success mt-0.5 animate-pulse" />
+                        <div className="absolute inset-0 w-4 h-4 rounded-full bg-success/30 animate-ping" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">
+                        <p className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors duration-300">
                           {activity.action}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground font-medium">
                           {activity.agent}
                         </p>
-                        <p className="text-xs text-success font-medium mt-1">
+                        <p className="text-xs text-success font-semibold mt-1">
                           {activity.time}
                         </p>
                       </div>
                       <Badge
                         variant="outline"
-                        className="bg-success/10 text-success border-success/20 text-xs"
+                        className="bg-success/10 text-success border-success/20 text-xs px-2 py-1 font-medium"
                       >
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         {activity.status}
@@ -421,7 +421,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
               ))}
             </div>
 
-            <Button variant="outline" className="w-full mt-6 group">
+            <Button variant="outline" className="w-full mt-6 group hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300">
               <Activity className="w-4 h-4 mr-2" />
               View All Activity
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
