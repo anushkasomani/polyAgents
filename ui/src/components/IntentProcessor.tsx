@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Send, 
-  Sparkles, 
-  DollarSign, 
-  Clock, 
-  Lightbulb, 
-  Wallet, 
+import {
+  Send,
+  Sparkles,
+  DollarSign,
+  Clock,
+  Lightbulb,
+  Wallet,
   AlertCircle,
   CheckCircle,
   Loader2,
@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { useX402Payment } from "@/components/X402PaymentHandler";
 
 interface ServiceResult {
   service: string;
@@ -32,6 +33,8 @@ interface ServiceResult {
 interface IntentProcessorProps {
   onResults: (results: ServiceResult[]) => void;
   onError: (error: string) => void;
+  userAddress?: string;
+  signer?: any;
 }
 
 // Orchestrator endpoint
@@ -56,7 +59,7 @@ const exampleIntents = [
   "Get Chainlink oracle data and news sentiment"
 ];
 
-export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
+export function IntentProcessor({ onResults, onError, userAddress, signer }: IntentProcessorProps) {
   const [userIntent, setUserIntent] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -64,6 +67,13 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
   const [totalCost, setTotalCost] = useState(0);
   const [results, setResults] = useState<ServiceResult[]>([]);
   const [progress, setProgress] = useState(0);
+  const [paymentRequired, setPaymentRequired] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState<any>(null);
+
+  const { createPayment, isProcessing: isPaymentProcessing, error: paymentError } = useX402Payment(
+    userAddress || '',
+    signer
+  );
 
   const steps = [
     { name: "Parse Intent", description: "Analyzing your request with orchestrator" },
@@ -122,17 +132,24 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
       return;
     }
 
+    if (!userAddress || !signer) {
+      onError('Please connect your wallet first');
+      return;
+    }
+
     console.log('🚀 Starting intent processing:', userIntent);
     setIsProcessing(true);
     setCurrentStep(0);
     setResults([]);
     setProgress(0);
+    setPaymentRequired(false);
+    setPaymentDetails(null);
 
     try {
       // Step 1: Parse Intent with Orchestrator
       setCurrentStep(1);
       setProgress(20);
-      
+
       console.log('📡 Calling orchestrator:', `${ORCHESTRATOR_ENDPOINT}/process`);
       const processResponse = await fetch(`${ORCHESTRATOR_ENDPOINT}/process`, {
         method: 'POST',
@@ -145,7 +162,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
       });
 
       console.log('📡 Orchestrator response status:', processResponse.status);
-      
+
       // Handle 402 Payment Required as success
       if (processResponse.status === 402 || processResponse.ok) {
         console.log('✅ Orchestrator responded (402 is expected)');
@@ -155,7 +172,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
 
       const processData = await processResponse.json();
       console.log('📊 Orchestrator response data:', processData);
-      
+
       if (processData.error) {
         throw new Error(processData.error);
       }
@@ -169,25 +186,119 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
       // Step 2: Show Payment Required (402)
       setCurrentStep(2);
       setProgress(40);
+      setPaymentRequired(true);
+
+      // Extract payment details from 402 response
+      if (processResponse.status === 402) {
+        const paymentInfo = processData.error?.data?.accepts || processData.accepts;
+        if (paymentInfo) {
+          const firstAccept = Array.isArray(paymentInfo) ? paymentInfo[0] : paymentInfo;
+          setPaymentDetails({
+            payTo: firstAccept.payTo,
+            amount: firstAccept.maxAmountRequired || processData.price || '10000',
+            asset: firstAccept.asset || '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582'
+          });
+        }
+      }
+
+      // Wait for user to process payment
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Step 3: Simulate Payment and Execute
+    } catch (error) {
+      console.error('❌ Error in processIntent:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      onError(errorMessage);
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!paymentDetails || !userAddress || !signer) {
+      onError('Payment details or wallet not available');
+      return;
+    }
+
+    try {
       setCurrentStep(3);
       setProgress(60);
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Step 4: Execute Services via Orchestrator
+      console.log('💳 Starting payment creation...');
+      console.log('Payment details:', paymentDetails);
+      console.log('User address:', userAddress);
+      console.log('Signer available:', !!signer);
+      console.log('User address type:', typeof userAddress);
+      console.log('User address length:', userAddress?.length);
+
+      // Check if we're on the right network
+      if (signer && signer.request) {
+        try {
+          const chainId = await signer.request({ method: 'eth_chainId' });
+          console.log('Current chain ID:', chainId);
+          console.log('Expected chain ID: 0x13882 (80002)');
+          if (chainId !== '0x13882') {
+            console.warn('⚠️ Wrong network! Please switch to Polygon Amoy testnet');
+            try {
+              await signer.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x13882' }],
+              });
+              console.log('✅ Switched to Polygon Amoy testnet');
+            } catch (switchError: any) {
+              if (switchError.code === 4902) {
+                // Network not added, try to add it
+                try {
+                  await signer.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                      chainId: '0x13882',
+                      chainName: 'Polygon Amoy Testnet',
+                      rpcUrls: ['https://rpc-amoy.polygon.technology'],
+                      nativeCurrency: {
+                        name: 'MATIC',
+                        symbol: 'MATIC',
+                        decimals: 18,
+                      },
+                      blockExplorerUrls: ['https://amoy.polygonscan.com'],
+                    }],
+                  });
+                  console.log('✅ Added Polygon Amoy testnet');
+                } catch (addError) {
+                  console.error('❌ Failed to add Polygon Amoy testnet:', addError);
+                }
+              } else {
+                console.error('❌ Failed to switch network:', switchError);
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Could not get chain ID:', e);
+        }
+      }
+
+      // Create and sign payment
+      const paymentPayload = await createPayment(
+        paymentDetails.payTo,
+        paymentDetails.amount,
+        paymentDetails.asset
+      );
+
+      console.log('💳 Payment created successfully:', paymentPayload);
+
+      // Step 4: Execute Services with Payment
       setCurrentStep(4);
       setProgress(80);
-      
-      console.log('🚀 Executing services with plan:', processData.plan);
+
+      console.log('🚀 Executing services with payment...');
       const executeResponse = await fetch(`${ORCHESTRATOR_ENDPOINT}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-PAYMENT': paymentPayload
         },
         body: JSON.stringify({
-          plan: processData.plan
+          plan: {
+            services: parsedServices.map(service => ({ service }))
+          }
         })
       });
 
@@ -198,7 +309,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
 
       const executeData = await executeResponse.json();
       console.log('📊 Execute response data:', executeData);
-      
+
       // Step 5: Aggregate Results
       setCurrentStep(5);
       setProgress(100);
@@ -214,13 +325,13 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
       console.log('🎉 Final results:', serviceResults);
       setResults(serviceResults);
       onResults(serviceResults);
+      setPaymentRequired(false);
 
     } catch (error) {
-      console.error('❌ Error in processIntent:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      console.error('❌ Error in payment processing:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
       onError(errorMessage);
     } finally {
-      console.log('🏁 Process completed, setting isProcessing to false');
       setIsProcessing(false);
     }
   };
@@ -295,9 +406,9 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
                   <h3 className="font-semibold text-foreground">Processing Your Intent</h3>
                   <span className="text-sm text-muted-foreground">{progress.toFixed(0)}%</span>
                 </div>
-                
+
                 <Progress value={progress} className="w-full" />
-                
+
                 <div className="space-y-2">
                   {steps.map((step, index) => (
                     <motion.div
@@ -305,13 +416,12 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className={`flex items-center gap-3 p-2 rounded-lg transition-all ${
-                        currentStep > index + 1 
-                          ? 'bg-success/10 text-success' 
-                          : currentStep === index + 1 
-                          ? 'bg-primary/10 text-primary' 
+                      className={`flex items-center gap-3 p-2 rounded-lg transition-all ${currentStep > index + 1
+                        ? 'bg-success/10 text-success'
+                        : currentStep === index + 1
+                          ? 'bg-primary/10 text-primary'
                           : 'bg-muted/50 text-muted-foreground'
-                      }`}
+                        }`}
                     >
                       {currentStep > index + 1 ? (
                         <CheckCircle className="w-4 h-4" />
@@ -370,7 +480,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
                 <CheckCircle className="w-5 h-5 text-success" />
                 <h3 className="font-semibold text-foreground">Results</h3>
               </div>
-              
+
               <div className="space-y-3">
                 {results.map((result, index) => (
                   <motion.div
@@ -378,11 +488,10 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className={`p-3 rounded-lg border ${
-                      result.success 
-                        ? 'bg-success/10 border-success/20' 
-                        : 'bg-destructive/10 border-destructive/20'
-                    }`}
+                    className={`p-3 rounded-lg border ${result.success
+                      ? 'bg-success/10 border-success/20'
+                      : 'bg-destructive/10 border-destructive/20'
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-sm">
@@ -392,7 +501,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
                         {result.success ? 'Success' : 'Failed'}
                       </Badge>
                     </div>
-                    
+
                     {result.success ? (
                       <pre className="text-xs text-muted-foreground bg-background/50 p-2 rounded overflow-x-auto">
                         {JSON.stringify(result.data, null, 2)}
@@ -408,6 +517,72 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
         )}
       </AnimatePresence>
 
+      {/* Payment Required UI */}
+      <AnimatePresence>
+        {paymentRequired && paymentDetails && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary-light to-secondary-light">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-foreground">Payment Required</h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Amount:</span>
+                    <p className="font-medium text-lg">${(parseInt(paymentDetails.amount) / 1000000).toFixed(6)} USDC</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Services:</span>
+                    <p className="font-medium">{parsedServices.length} services</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {parsedServices.map((service) => (
+                    <Badge key={service} variant="outline" className="text-xs">
+                      {SERVICE_MAPPING[service as keyof typeof SERVICE_MAPPING]?.name || service}
+                    </Badge>
+                  ))}
+                </div>
+
+                {paymentError && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{paymentError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  onClick={handlePayment}
+                  disabled={isPaymentProcessing || !userAddress || !signer}
+                  className="w-full"
+                  variant="gradient"
+                  size="lg"
+                >
+                  {isPaymentProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing Transaction...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Sign & Pay
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Submit Button */}
       <Button
         onClick={() => {
@@ -415,7 +590,7 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
           console.log('🔘 isProcessing:', isProcessing);
           processIntent();
         }}
-        disabled={!userIntent.trim() || isProcessing}
+        disabled={!userIntent.trim() || isProcessing || !userAddress || !signer}
         className="w-full"
         variant="gradient"
         size="lg"
@@ -424,6 +599,11 @@ export function IntentProcessor({ onResults, onError }: IntentProcessorProps) {
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             Processing...
+          </>
+        ) : !userAddress || !signer ? (
+          <>
+            <Wallet className="w-4 h-4 mr-2" />
+            Connect Wallet First
           </>
         ) : (
           <>

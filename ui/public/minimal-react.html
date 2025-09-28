@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal React Test</title>
+</head>
+
+<body>
+  <div id="root">Loading React...</div>
+  <script type="module">
+    try {
+      console.log('Starting React test...');
+
+      // Import React and ReactDOM from the Vite dev server
+      const { createRoot } = await import('/node_modules/.vite/deps/react-dom_client.js?v=c2ca3786');
+      const React = await import('/node_modules/.vite/deps/react.js?v=c2ca3786');
+
+      console.log('React modules loaded successfully');
+
+      const root = createRoot(document.getElementById('root'));
+
+      // Create a simple React element
+      const element = React.createElement('div', null,
+        React.createElement('h1', null, 'React is working!'),
+        React.createElement('p', null, 'This is a minimal React test.')
+      );
+
+      root.render(element);
+      console.log('React app rendered successfully');
+
+    } catch (error) {
+      console.error('React test failed:', error);
+      document.getElementById('root').innerHTML = `
+                <div style="color: red; padding: 20px;">
+                    <h1>React Test Failed</h1>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Stack:</strong></p>
+                    <pre>${error.stack}</pre>
+                </div>
+            `;
+    }
+  </script>
+</body>
+
+</html>

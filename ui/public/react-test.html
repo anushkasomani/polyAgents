@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Test</title>
+</head>
+
+<body>
+  <div id="root">Loading...</div>
+  <script type="module">
+    import { createRoot } from 'https://unpkg.com/react-dom@18/client';
+    import React from 'https://unpkg.com/react@18';
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement('h1', null, 'React is working!'));
+    console.log('React test loaded successfully');
+  </script>
+</body>
+
+</html>

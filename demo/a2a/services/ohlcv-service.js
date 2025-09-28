@@ -14,11 +14,14 @@ app.post('/ohlcv', async (req, res) => {
 
     console.log(`📈 OHLCV: Processing ${service} request`);
 
-    // Call the Python ohlcv service
+    // Call the Python ohlcv service with virtual environment
     const pythonScript = path.join(__dirname, 'ohlcv.py');
     const python = spawn('python3', [pythonScript], {
       cwd: __dirname,
-      env: { ...process.env }
+      env: {
+        ...process.env,
+        PATH: path.join(__dirname, 'venv', 'bin') + ':' + process.env.PATH
+      }
     });
 
     let output = '';

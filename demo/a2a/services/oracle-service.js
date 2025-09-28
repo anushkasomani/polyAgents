@@ -14,11 +14,14 @@ app.post('/oracle', async (req, res) => {
 
     console.log(`🔮 ORACLE: Processing ${service} request`);
 
-    // Call the Python oracle service
+    // Call the Python oracle service with virtual environment
     const pythonScript = path.join(__dirname, 'oracle.py');
     const python = spawn('python3', [pythonScript], {
       cwd: __dirname,
-      env: { ...process.env }
+      env: {
+        ...process.env,
+        PATH: path.join(__dirname, 'venv', 'bin') + ':' + process.env.PATH
+      }
     });
 
     let output = '';

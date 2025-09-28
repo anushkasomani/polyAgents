@@ -10,7 +10,8 @@ try:
     from sentiment import fetch_headlines, rolling_sentiment
     
     # Get crypto news from CryptoPanic
-    auth_token = os.getenv('CRYPTOPANIC_API_KEY')  # Optional API key
+    # Try a few common env var names for the Cryptopanic token for convenience
+    auth_token = "64b974a7af40cf7561155c98e5e3a0b9c7bd29d3" or os.environ.get("CRYPTOPANIC_TOKEN") or os.environ.get("CP_TOKEN")
     df_news = fetch_headlines(auth_token)
     
     # Get sentiment analysis
