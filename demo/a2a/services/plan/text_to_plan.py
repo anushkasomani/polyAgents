@@ -1,162 +1,96 @@
-# from dotenv import load_dotenv
-# import os
-# import json
-# import google.generativeai as genai
-
-# load_dotenv()
-
-# api_key ='AIzaSyBgYdv3VhYoKX4tnw6kKiRqh1CAKh_bBY8'
-# if not api_key:
-#     raise RuntimeError("GOOGLE_API_KEY not found in environment")
-
-# def build_plan_with_gemini(user_text: str) -> dict:
-#     """
-#     Use Gemini to generate a structured Plan JSON.
-#     Returns a dict of the form:
-#       {"services": [{"service": "name", "description": "..."}, ...]}
-#     """
-#     genai.configure(api_key=api_key)
-
-#     prompt = f"""Analyse the user text and return a JSON plan that lists one or more services the user requests.
-# Return ONLY valid JSON with this schema:
-
-# {{
-#   "services": [
-#     {{
-#       "service": "service name",
-#       "description": "service description"
-#     }}
-#   ]
-# }}
-
-# Example input:
-# "I want ohlcv data for BTC and ETH and also get me the latest news on DOGE from reddit or x and tell me about this NFT or give me a rarity score on this NFT. Get me the weather prediction for tomorrow in London. And run backtest on Solana/Arbitrum if the sentiment is good."
-
-# Example output:
-# {{
-#   "services": [
-#     {{ "service": "ohlcv", "description": "get ohlcv data for BTC and ETH" }},
-#     {{ "service": "news",  "description": "get the latest news on DOGE from reddit or x" }},
-#     {{ "service": "nft",   "description": "give me a rarity score on this NFT" }},
-#     {{ "service": "weather","description": "get the weather prediction for tomorrow in London" }},
-#     {{ "service": "backtest","description": "run backtest on Solana/Arbitrum if the sentiment is good" }}
-#   ]
-# }}
-
-# Now produce the JSON plan for this user text: {user_text}
-# """
-
-#     model = genai.GenerativeModel("gemini-2.0-flash")
-
-#     try:
-#         response = model.generate_content(
-#             [prompt],
-#             generation_config={"response_mime_type": "application/json"}
-#         )
-
-#         raw_json = response.text  # Gemini response body
-#         plan = json.loads(raw_json)
-#         return plan
-
-#     except Exception as e:
-#         print(f"Gemini generation error: {e}")
-#         return {"services": []}
-
-
-# if __name__ == "__main__":
-#     test_prompt = "trending token which broke out in 5m and their sentiments"
-#     generated_plan = build_plan_with_gemini(test_prompt)
-#     print("Test Prompt:")
-#     print(test_prompt)
-#     print("\nGenerated Plan:")
-#     print(json.dumps(generated_plan, indent=2))
-
 from dotenv import load_dotenv
 import os
 import json
 import google.generativeai as genai
 
+# --- Initialization and Configuration (runs only once) ---
+
+# Load environment variables from a .env file
 load_dotenv()
 
-api_key='AIzaSyCyie2IcFLNRhQZV1wU5r2j6gC6FWsb1d4'
+# Get API key from environment and configure the SDK.
+# This is more secure than hardcoding the key.
+api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
-    raise RuntimeError("GOOGLE_API_KEY not found in environment")
+    raise ValueError("Error: GOOGLE_API_KEY is not set in the environment variables.")
+    
+print("✅ Gemini API configured successfully.")
+genai.configure(api_key=api_key)
+
+# Create the model instance once to be reused.
+# Updated to a current and efficient model.
+print("🧠 Initializing Gemini model: gemini-1.5-flash-latest")
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
+
 
 def build_plan_with_gemini(user_text: str) -> dict:
     """
-    Use Gemini to generate a structured Plan JSON.
-    Returns a dict of the form:
-      {"services": [{"service": "name", "description": "..."}, ...]}
+    Uses Gemini to generate a structured plan from user text.
+
+    Args:
+        user_text: The natural language request from the user.
+
+    Returns:
+        A dictionary structured as the plan, or an empty plan on failure.
     """
-    print("Configuring Gemini API...")
-    genai.configure(api_key=api_key)
-    print("API configured successfully")
+    # A clear, structured prompt for the model to follow.
+    prompt = f"""
+    Analyze the user's request and generate a JSON object that breaks down the request into a list of services.
 
-    prompt = f"""Analyse the user text and return a JSON plan that lists one or more services the user requests.
-Return ONLY valid JSON with this schema:
+    **Instructions:**
+    1. The output must be a valid JSON object.
+    2. The root of the object must be a key named "services".
+    3. The "services" key must contain an array of objects.
+    4. Each object in the array must have two keys: "service" (a short, one-word identifier) and "description" (a summary of that part of the request).
 
-{{
-  "services": [
+    **Example Input:**
+    "I want ohlcv data for BTC and ETH and also get me the latest news on DOGE from reddit or x. Get me the weather prediction for tomorrow in London."
+
+    **Example Output:**
     {{
-      "service": "service name",
-      "description": "service description"
+      "services": [
+        {{ "service": "ohlcv", "description": "get ohlcv data for BTC and ETH" }},
+        {{ "service": "news",  "description": "get the latest news on DOGE from reddit or x" }},
+        {{ "service": "weather","description": "get the weather prediction for tomorrow in London" }}
+      ]
     }}
-  ]
-}}
 
-Example input:
-"I want ohlcv data for BTC and ETH and also get me the latest news on DOGE from reddit or x and tell me about this NFT or give me a rarity score on this NFT. Get me the weather prediction for tomorrow in London. And run backtest on Solana/Arbitrum if the sentiment is good."
-
-Example output:
-{{
-  "services": [
-    {{ "service": "ohlcv", "description": "get ohlcv data for BTC and ETH" }},
-    {{ "service": "news",  "description": "get the latest news on DOGE from reddit or x" }},
-    {{ "service": "nft",   "description": "give me a rarity score on this NFT" }},
-    {{ "service": "weather","description": "get the weather prediction for tomorrow in London" }},
-    {{ "service": "backtest","description": "run backtest on Solana/Arbitrum if the sentiment is good" }}
-  ]
-}}
-
-Now produce the JSON plan for this user text: {user_text}
-"""
-
-    print("Creating Gemini model...")
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    print("Model created successfully")
+    ---
+    **User Request to Analyze:**
+    "{user_text}"
+    ---
+    """
 
     try:
-        print("Sending request to Gemini...")
+        print(f"\n🔄 Sending request to Gemini...")
         response = model.generate_content(
-            [prompt],
+            prompt,
+            # Ensures the model output is formatted as a JSON string
             generation_config={"response_mime_type": "application/json"}
         )
-        print("Received response from Gemini")
-
-        raw_json = response.text  # Gemini response body
-        plan = json.loads(raw_json)
-        return plan
+        print("✅ Received valid response.")
+        
+        # The response.text is the clean JSON string from the model
+        plan_data = json.loads(response.text)
+        return plan_data
 
     except Exception as e:
-        print(f"Gemini generation error: {e}")
+        print(f"❌ An error occurred during Gemini generation: {e}")
+        # Return an empty plan as a safe fallback
         return {"services": []}
 
-# # --- This is the new part for testing ---
-# if __name__ == "__main__":
-#     print("Starting script...")
-    
-#     # Define a test prompt
-#     test_prompt = "Find me flight prices from New York to London for next month. Also, tell me the current time in Tokyo."
-    
-#     print(f"Test prompt: {test_prompt}")
-#     print("Calling build_plan_with_gemini...")
-    
-#     # Call the function with the test prompt
-#     generated_plan = build_plan_with_gemini(test_prompt)
-    
-#     # Print the result
-#     print("Test Prompt:")
-#     print(test_prompt)
-#     print("\nGenerated Plan:")
-#     print(json.dumps(generated_plan, indent=2))
+# --- Testing Block ---
 
+if __name__ == "__main__":
+    print("\n🚀 Starting Gemini Plan Builder Test...")
+    
+    test_prompt = "Find me flight prices from New York to London for next month. Also, tell me the current time in Tokyo."
+    
+    print(f"🗣️  Test Prompt: \"{test_prompt}\"")
+    
+    # Call the function with the test prompt
+    generated_plan = build_plan_with_gemini(test_prompt)
+    
+    # Print the final result in a readable format
+    print("\n📋 Generated Plan:")
+    print(json.dumps(generated_plan, indent=2))
