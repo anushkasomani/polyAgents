@@ -35,6 +35,7 @@ import { IntentProcessor } from "@/components/IntentProcessor";
 import { IntegrationTest } from "@/components/IntegrationTest";
 import { SimpleIntentTest } from "@/components/SimpleIntentTest";
 import { MetaMaskTest } from "@/components/MetaMaskTest";
+import { SimpleClientAgent } from "@/components/SimpleClientAgent";
 
 interface DashboardProps {
   onStartIntent: () => void;
@@ -100,6 +101,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
   const [showIntegrationTest, setShowIntegrationTest] = useState(false);
   const [showSimpleTest, setShowSimpleTest] = useState(false);
   const [showMetaMaskTest, setShowMetaMaskTest] = useState(false);
+  const [showSimpleClientAgent, setShowSimpleClientAgent] = useState(false);
   const [processingResults, setProcessingResults] = useState<any[]>([]);
   const [userAddress, setUserAddress] = useState<string>("");
   const [signer, setSigner] = useState<any>(null);
@@ -243,7 +245,7 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
             <Button
               variant="gradient"
               size="xl"
-              onClick={() => setShowIntentProcessor(true)}
+              onClick={() => setShowSimpleClientAgent(true)}
               className="group relative overflow-hidden"
             >
               <Rocket className="w-5 h-5 mr-2 group-hover:animate-bounce" />
@@ -600,6 +602,44 @@ export function Dashboard({ onStartIntent }: DashboardProps) {
                 </div>
                 <div className="p-6">
                   <MetaMaskTest />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Simple Client Agent Modal */}
+        <AnimatePresence>
+          {showSimpleClientAgent && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowSimpleClientAgent(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h2 className="text-2xl font-bold text-foreground">Simple Client Agent</h2>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowSimpleClientAgent(false)}
+                    className="p-2"
+                  >
+                    ×
+                  </Button>
+                </div>
+                <div className="p-6">
+                  <SimpleClientAgent
+                    userAddress={userAddress}
+                    signer={signer}
+                  />
                 </div>
               </motion.div>
             </motion.div>

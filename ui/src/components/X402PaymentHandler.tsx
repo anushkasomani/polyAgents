@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { ethers } from 'ethers';
 
 interface PaymentDetails {
   from: string;
@@ -41,24 +42,20 @@ export function X402PaymentHandler({
     verifyingContract: string
   ): Promise<PaymentDetails> => {
     const now = Math.floor(Date.now() / 1000);
-    const nonceRaw = `${now}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 
-    // Create a proper 32-byte nonce (browser-compatible)
-    const randomBytes = new Uint8Array(32);
-    crypto.getRandomValues(randomBytes);
-    const hashHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    const nonce = `0x${hashHex}`;
+    // Create nonce using ethers.js compatible method (like the backend client-agent)
+    const nonceRaw = `${now}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    const nonce = ethers.id(nonceRaw); // This creates a proper bytes32 hash
 
     console.log('🔢 Nonce generation:');
-    console.log('Random bytes length:', randomBytes.length);
-    console.log('Hash hex length:', hashHex.length);
+    console.log('Nonce raw:', nonceRaw);
+    console.log('Nonce hash:', nonce);
     console.log('Nonce length:', nonce.length);
-    console.log('Nonce:', nonce);
 
     return {
       from,
       to,
-      value,
+      value, // Keep as string - facilitator expects string
       validAfter: now - 60,
       validBefore: now + 300,
       nonce,
@@ -94,7 +91,7 @@ export function X402PaymentHandler({
     const message = {
       from: payment.from,
       to: payment.to,
-      value: parseInt(payment.value), // Convert string to number for uint256
+      value: payment.value, // Keep as string - facilitator expects string
       validAfter: payment.validAfter,
       validBefore: payment.validBefore,
       nonce: payment.nonce
@@ -119,16 +116,10 @@ export function X402PaymentHandler({
       console.log('  validBefore type:', typeof message.validBefore);
       console.log('  nonce type:', typeof message.nonce);
 
-      // Sign EIP-712 typed data using MetaMask
-      const signature = await signer.request({
-        method: 'eth_signTypedData_v4',
-        params: [userAddress, {
-          domain,
-          types,
-          primaryType: 'TransferWithAuthorization',
-          message
-        }]
-      });
+      // Use ethers.js for signing (same as backend)
+      const provider = new ethers.BrowserProvider(signer);
+      const wallet = await provider.getSigner();
+      const signature = await wallet.signTypedData(domain, types, message);
 
       console.log('✅ Signature received:', signature);
       console.log('🔍 Payment from address:', payment.from);
@@ -275,17 +266,12 @@ export function useX402Payment(userAddress: string, signer: any) {
       // Create payment payload
       const now = Math.floor(Date.now() / 1000);
       const nonceRaw = `${now}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
-      // Create a proper 32-byte nonce (browser-compatible)
-      const randomBytes = new Uint8Array(32);
-      crypto.getRandomValues(randomBytes);
-      const hashHex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-      const nonce = `0x${hashHex}`;
+      const nonce = ethers.id(nonceRaw); // This creates a proper bytes32 hash
 
       console.log('🔢 Nonce generation:');
-      console.log('Random bytes length:', randomBytes.length);
-      console.log('Hash hex length:', hashHex.length);
+      console.log('Nonce raw:', nonceRaw);
+      console.log('Nonce hash:', nonce);
       console.log('Nonce length:', nonce.length);
-      console.log('Nonce:', nonce);
 
       const payment = {
         from: userAddress,
@@ -322,7 +308,7 @@ export function useX402Payment(userAddress: string, signer: any) {
       const message = {
         from: payment.from,
         to: payment.to,
-        value: parseInt(payment.value), // Convert string to number for uint256
+        value: payment.value, // Keep as string - facilitator expects string
         validAfter: payment.validAfter,
         validBefore: payment.validBefore,
         nonce: payment.nonce
@@ -346,15 +332,10 @@ export function useX402Payment(userAddress: string, signer: any) {
       console.log('  validBefore type:', typeof message.validBefore);
       console.log('  nonce type:', typeof message.nonce);
 
-      const signature = await signer.request({
-        method: 'eth_signTypedData_v4',
-        params: [userAddress, {
-          domain,
-          types,
-          primaryType: 'TransferWithAuthorization',
-          message
-        }]
-      });
+      // Use ethers.js for signing (same as backend)
+      const provider = new ethers.BrowserProvider(signer);
+      const wallet = await provider.getSigner();
+      const signature = await wallet.signTypedData(domain, types, message);
 
       console.log('✅ Signature received:', signature);
       console.log('🔍 Payment from address:', payment.from);

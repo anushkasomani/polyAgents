@@ -205,6 +205,11 @@ start_services() {
   echo $! > /tmp/geckoterminal.pid
   sleep 0.5
 
+  # Weather Service
+  nohup env PORT=5405 npx ts-node "$ROOT_DIR/a2a/services/weather-service/index.ts" > /tmp/weather.log 2>&1 &
+  echo $! > /tmp/weather.pid
+  sleep 0.5
+
   # OHLCV Service  
   nohup env PORT=5406 node "$ROOT_DIR/a2a/services/ohlcv-service.js" > /tmp/ohlcv.log 2>&1 &
   echo $! > /tmp/ohlcv.pid
@@ -357,7 +362,7 @@ show_logs() {
 cleanup() {
   echo ""
   echo "🧹 Cleaning up services..."
-  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid /tmp/frontend.pid; do
+  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/weather.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid /tmp/frontend.pid; do
     if [ -f "$pid_file" ]; then
       local pid=$(cat "$pid_file")
       if kill -0 "$pid" 2>/dev/null; then
