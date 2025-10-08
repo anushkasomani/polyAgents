@@ -3,6 +3,7 @@ import os
 from typing import List, Dict, Any, Optional
 import sys
 from datetime import datetime
+import json
 
 BASE = os.getenv("GECKOTERMINAL_API", "https://api.geckoterminal.com/api/v2")
 API_VERSION_HEADER = "application/json;version=20230302"

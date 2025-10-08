@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnostic Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .test {
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+
+    .pass {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+
+    .fail {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Diagnostic Page</h1>
+  <div id="tests"></div>
+
+  <script>
+    const tests = document.getElementById('tests');
+
+    function addTest(name, result, details = '') {
+      const div = document.createElement('div');
+      div.className = `test ${result ? 'pass' : 'fail'}`;
+      div.innerHTML = `<strong>${name}:</strong> ${result ? 'PASS' : 'FAIL'} ${details}`;
+      tests.appendChild(div);
+    }
+
+    // Test 1: Basic JavaScript
+    addTest('JavaScript', true, 'Basic JavaScript is working');
+
+    // Test 2: DOM manipulation
+    addTest('DOM Manipulation', document.getElementById('tests') !== null, 'DOM is accessible');
+
+    // Test 3: Console logging
+    console.log('Diagnostic page loaded');
+    addTest('Console Logging', true, 'Check browser console for this message');
+
+    // Test 4: Check if we can access the main app
+    fetch('/src/main.tsx')
+      .then(response => {
+        addTest('Main App File', response.ok, `Status: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        addTest('Main App Content', text.includes('createRoot'), 'React createRoot found');
+      })
+      .catch(error => {
+        addTest('Main App File', false, `Error: ${error.message}`);
+      });
+
+    // Test 5: Check if we can access the App component
+    fetch('/src/App.tsx')
+      .then(response => {
+        addTest('App Component', response.ok, `Status: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        addTest('App Component Content', text.includes('Dashboard'), 'Dashboard component found');
+      })
+      .catch(error => {
+        addTest('App Component', false, `Error: ${error.message}`);
+      });
+
+    // Test 6: Check if we can access the Dashboard component
+    fetch('/src/components/Dashboard.tsx')
+      .then(response => {
+        addTest('Dashboard Component', response.ok, `Status: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        addTest('Dashboard Content', text.includes('export function Dashboard'), 'Dashboard export found');
+      })
+      .catch(error => {
+        addTest('Dashboard Component', false, `Error: ${error.message}`);
+      });
+  </script>
+</body>
+
+</html>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -15,13 +15,9 @@ else
   exit 1
 fi
 
-# Check for required environment variables
-if [ -z "${GOOGLE_API_KEY:-}" ]; then
-  echo "ERROR: GOOGLE_API_KEY not found in environment. Please set it in .env.local" >&2
-  exit 1
-fi
+# Environment variables are loaded from .env.local
 
-echo "🚀 Starting Interactive x402 Demo with Plan Analyzer..."
+echo "🚀 Starting Interactive x402 Demo..."
 echo "=================================================="
 
 # Function to get user input
@@ -42,66 +38,47 @@ get_user_input() {
   fi
 }
 
-# Function to analyze user input using Python plan analyzer
+# Function to generate plan using keyword matching
 analyze_plan() {
   local user_text="$1"
-  echo "🧠 Analyzing your request with AI plan analyzer..." >&2
+  echo "🔍 Analyzing your request..." >&2
   
-  # Use the Python plan analyzer
-  local plan_result
-  if command -v python3 >/dev/null 2>&1; then
-    plan_result=$(cd "$ROOT_DIR/plan" && python3 text_to_plan_cli.py "$user_text" 2>/dev/null)
-    # Check if plan_result is valid JSON and not empty
-    if ! echo "$plan_result" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
-      echo "⚠️ Python plan analyzer failed. Using fallback..." >&2
-      plan_result=""
-    fi
-  else
-    echo "❌ Python3 not found. Using fallback plan generation..." >&2
-    plan_result=""
+  # Build services array based on keyword matching
+  local services=()
+  
+  if [[ "$user_text" =~ (news|trending news|x|twitter|reddit|btc|eth|crypto) ]]; then
+    services+=('{"service": "news", "description": "Get cryptocurrency news"}')
   fi
   
-  # Fallback to simple keyword matching if Python failed or returned empty
-  if [ -z "$plan_result" ] || [ "$plan_result" = "{}" ] || [ "$plan_result" = '{"services": []}' ]; then
-    echo "🔄 Using fallback plan generation..." >&2
-    
-    # Build services array step by step
-    local services=()
-    
-    if [[ "$user_text" =~ (news|trending news|x|twitter|reddit|btc|eth|crypto) ]]; then
-      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
-    fi
-    
-    if [[ "$user_text" =~ (weather|london|tokyo|new york) ]]; then
-      services+=('{"service": "weather", "description": "Get weather information"}')
-    fi
-    
-    if [[ "$user_text" =~ (price|ohlcv|chart) ]]; then
-      services+=('{"service": "ohlcv", "description": "Get OHLCV price data"}')
-    fi
-    
-    if [[ "$user_text" =~ (gecko|trending token|pools) ]]; then
-      services+=('{"service": "top tokens/pools", "description": "Get trending pools from agent"}')
-    fi
-    
-    if [[ "$user_text" =~ (oracle|chainlink|price feed) ]]; then
-      services+=('{"service": "oracle", "description": "Get Chainlink oracle price data"}')
-    fi
-    
-    if [[ "$user_text" =~ (sentiment|mood|analysis) ]]; then
-      services+=('{"service": "sentiment", "description": "Get market sentiment analysis"}')
-    fi
-    
-    # If no services detected, default to news
-    if [ ${#services[@]} -eq 0 ]; then
-      services+=('{"service": "news", "description": "Get cryptocurrency news"}')
-    fi
-    
-    # Build final JSON
-    local services_json=$(printf '%s,' "${services[@]}")
-    services_json=${services_json%,}  # Remove trailing comma
-    plan_result="{\"services\": [$services_json]}"
+  if [[ "$user_text" =~ (weather|london|tokyo|new york) ]]; then
+    services+=('{"service": "weather", "description": "Get weather information"}')
   fi
+  
+  if [[ "$user_text" =~ (price|ohlcv|chart) ]]; then
+    services+=('{"service": "ohlcv", "description": "Get OHLCV price data"}')
+  fi
+  
+  if [[ "$user_text" =~ (gecko|trending token|pools) ]]; then
+    services+=('{"service": "geckoterminal", "description": "Get trending pools from GeckoTerminal"}')
+  fi
+  
+  if [[ "$user_text" =~ (oracle|chainlink|price feed) ]]; then
+    services+=('{"service": "oracle", "description": "Get Chainlink oracle price data"}')
+  fi
+  
+  if [[ "$user_text" =~ (sentiment|mood|analysis) ]]; then
+    services+=('{"service": "sentiment", "description": "Get market sentiment analysis"}')
+  fi
+  
+  # If no services detected, default to news
+  if [ ${#services[@]} -eq 0 ]; then
+    services+=('{"service": "news", "description": "Get cryptocurrency news"}')
+  fi
+  
+  # Build final JSON
+  local services_json=$(printf '%s,' "${services[@]}")
+  services_json=${services_json%,}  # Remove trailing comma
+  local plan_result="{\"services\": [$services_json]}"
   
   echo "$plan_result"
 }
@@ -131,8 +108,8 @@ start_services() {
   echo ""
   echo "🔧 Starting required services..."
   
-  # Kill anything on the demo ports (including frontend)
-  for port in "${FACILITATOR_PORT:-5401}" "${SERVICE_AGENT_PORT:-5402}" "${RESOURCE_SERVER_PORT:-5403}" "${ORCHESTRATOR_PORT:-5400}" "${FRONTEND_PORT:-8000}" "${FRONTEND_PORT_ALT:-8001}"; do
+  # Kill anything on the demo ports
+  for port in "${FACILITATOR_PORT:-5401}" "${SERVICE_AGENT_PORT:-5402}" "${RESOURCE_SERVER_PORT:-5403}" "${ORCHESTRATOR_PORT:-5400}"; do
     pids=$(lsof -n -iTCP:"$port" -sTCP:LISTEN -t || true)
     if [ -n "$pids" ]; then
       echo "Killing processes on port $port: $pids"
@@ -191,10 +168,20 @@ start_services() {
   sleep 3
   
   # Check if orchestrator started
-  if ! curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+  local count=0
+  while [ $count -lt 10 ]; do
+    if curl -s http://localhost:5400/healthz > /dev/null 2>&1; then
+      echo "✅ Orchestrator is ready"
+      break
+    fi
+    sleep 1
+    count=$((count + 1))
+  done
+  
+  if [ $count -eq 10 ]; then
     echo "❌ Orchestrator failed to start. Checking logs..." >&2
     tail -n 20 /tmp/orchestrator.log >&2
-    exit 1
+    echo "Continuing anyway..." >&2
   fi
 
   # Start Python Services
@@ -203,11 +190,6 @@ start_services() {
   # GeckoTerminal Service
   nohup env PORT=5404 node "$ROOT_DIR/a2a/services/geckoterminal-service.js" > /tmp/geckoterminal.log 2>&1 &
   echo $! > /tmp/geckoterminal.pid
-  sleep 0.5
-
-  # Weather Service
-  nohup env PORT=5405 npx ts-node "$ROOT_DIR/a2a/services/weather-service/index.ts" > /tmp/weather.log 2>&1 &
-  echo $! > /tmp/weather.pid
   sleep 0.5
 
   # OHLCV Service  
@@ -225,31 +207,6 @@ start_services() {
   echo $! > /tmp/sentiment.pid
   sleep 0.5
 
-
-  # Start Frontend
-  echo "🌐 Starting Frontend..."
-  
-  # Check if UI directory exists
-  if [ -d "$ROOT_DIR/../ui" ]; then
-    cd "$ROOT_DIR/../ui"
-    
-    # Install dependencies if needed
-    if [ ! -d "node_modules" ]; then
-      echo "📦 Installing frontend dependencies..."
-      npm install --silent
-    fi
-    
-    # Start frontend in background
-    nohup npm run dev > /tmp/frontend.log 2>&1 &
-    echo $! > /tmp/frontend.pid
-    sleep 2
-    
-    echo "✅ Frontend started on http://localhost:${FRONTEND_PORT:-8000}"
-  else
-    echo "⚠️ UI directory not found at $ROOT_DIR/../ui" >&2
-  fi
-  
-  cd "$ROOT_DIR"
 
   # Wait for health endpoints
   echo "⏳ Waiting for services to become healthy..."
@@ -362,7 +319,7 @@ show_logs() {
 cleanup() {
   echo ""
   echo "🧹 Cleaning up services..."
-  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/weather.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid /tmp/frontend.pid; do
+  for pid_file in /tmp/fac.pid /tmp/res.pid /tmp/service.pid /tmp/orchestrator.pid /tmp/geckoterminal.pid /tmp/ohlcv.pid /tmp/oracle.pid /tmp/sentiment.pid; do
     if [ -f "$pid_file" ]; then
       local pid=$(cat "$pid_file")
       if kill -0 "$pid" 2>/dev/null; then
@@ -383,40 +340,71 @@ main() {
   # Start all required services
   start_services
   
-  echo ""
-  echo "🎉 Interactive x402 Demo with Frontend Integration Ready!"
-  echo "========================================================"
-  echo ""
-  echo "🌐 Frontend UI: http://localhost:${FRONTEND_PORT:-8001}"
-  echo "🔧 Backend Services:"
-  echo "   - Orchestrator: http://localhost:${ORCHESTRATOR_PORT:-5400}"
-  echo "   - Facilitator: http://localhost:${FACILITATOR_PORT:-5401}"
-  echo "   - Service Agent: http://localhost:${SERVICE_AGENT_PORT:-5402}"
-  echo "   - Resource Server: http://localhost:${RESOURCE_SERVER_PORT:-5403}"
-  echo ""
-  echo "💡 Instructions:"
-  echo "   1. Open the frontend URL in your browser"
-  echo "   2. Connect your wallet (MetaMask, etc.)"
-  echo "   3. Enter your intent in the UI"
-  echo "   4. Sign the transaction when prompted"
-  echo "   5. Watch the services execute with real x402 payments!"
-  echo ""
-  echo "📋 Available Services:"
-  echo "   - News Service (crypto news)"
-  echo "   - Weather Service (weather data)"
-  echo "   - Sentiment Analysis (market sentiment)"
-  echo "   - OHLCV Data (price charts)"
-  echo "   - Backtesting (strategy testing)"
-  echo "   - Oracle Service (Chainlink data)"
-  echo "   - GeckoTerminal (trending pools)"
-  echo ""
-  echo "🔄 Press Ctrl+C to stop all services"
-  echo ""
-  
-  # Keep the script running to maintain services
-  while true; do
-    sleep 1
-  done
+  # Check if input is being piped
+  if [ -t 0 ]; then
+    # Interactive mode
+    while true; do
+      get_user_input
+      
+      if [ "$user_input" = "quit" ] || [ "$user_input" = "exit" ] || [ "$user_input" = "q" ]; then
+        echo "👋 Goodbye!"
+        break
+      fi
+      
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        continue
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
+      
+      echo ""
+      echo "🔄 Ready for another request! (type 'quit' to exit)"
+    done
+  else
+    # Piped input mode - process single request
+    local user_input
+    read -r user_input
+    
+    if [ -n "$user_input" ]; then
+      # Analyze the user input
+      local plan_json
+      plan_json=$(analyze_plan "$user_input")
+      
+      # Check if plan analysis was successful
+      if echo "$plan_json" | grep -q "error"; then
+        echo "❌ Plan analysis failed: $plan_json"
+        exit 1
+      fi
+      
+      # Calculate dynamic price
+      local price
+      price=$(calculate_dynamic_price "$plan_json")
+      
+      # Show the plan and price
+      echo ""
+      echo "📋 Generated Plan:"
+      echo "$plan_json" | python3 -m json.tool 2>/dev/null || echo "$plan_json"
+      
+      # Execute the plan
+      execute_plan "$user_input" "$plan_json" "$price"
+    fi
+  fi
 }
 
 # Run the main function

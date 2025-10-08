@@ -229,7 +229,7 @@ export default function Page() {
           <div className="text-sm text-muted">Demo orchestration & artifacts</div>
         </div>
         <div className="flex items-center gap-3">
-          <WalletConnectButton onConnect={(addr)=>{ setToast(`Wallet: ${addr}`); setWalletAddress(addr); }} />
+          <WalletConnectButton onConnect={(addr) => { setToast(`Wallet: ${addr}`); setWalletAddress(addr); }} />
           <StartDemoButton running={running} onStart={() => startDemo()} onHardRefresh={() => hardRefresh()} />
         </div>
       </header>
