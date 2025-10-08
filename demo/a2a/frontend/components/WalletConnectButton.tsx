@@ -52,11 +52,11 @@ export default function WalletConnectButton({ onConnect }: { onConnect?: (addr: 
 
   return (
     <div className="flex items-center gap-3">
-      <button onClick={connect} style={{backgroundColor: 'var(--accent)'}} className="px-3 py-2 text-white rounded-md text-sm hover:opacity-95">
+      <button onClick={connect} style={{ backgroundColor: 'var(--accent)' }} className="px-3 py-2 text-white rounded-md text-sm hover:opacity-95">
         {connected ? 'Connected' : 'Connect Wallet'}
       </button>
       {address ? (
-        <div className="text-sm text-gray-200 bg-white/5 px-2 py-1 rounded">{address.slice(0,6)}...{address.slice(-4)}</div>
+        <div className="text-sm text-gray-200 bg-white/5 px-2 py-1 rounded">{address.slice(0, 6)}...{address.slice(-4)}</div>
       ) : null}
     </div>
   );

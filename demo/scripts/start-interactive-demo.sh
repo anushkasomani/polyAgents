@@ -81,7 +81,7 @@ analyze_plan() {
     fi
     
     if [[ "$user_text" =~ (gecko|trending token|pools) ]]; then
-      services+=('{"service": "geckoterminal", "description": "Get trending pools from GeckoTerminal"}')
+      services+=('{"service": "top tokens/pools", "description": "Get trending pools from agent"}')
     fi
     
     if [[ "$user_text" =~ (oracle|chainlink|price feed) ]]; then
